@@ -1,24 +1,21 @@
 import os
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 router = APIRouter(prefix="/gpu", tags=["gpu"])
 
 RUNPOD_GQL = "https://api.runpod.io/graphql"
 
+_LOCAL_RESPONSE = {
+    "mode": "local",
+    "message": "No GPU provider configured. Running in local mode.",
+}
 
-# ---------------------------------------------------------------------------
-# Dependency
-# ---------------------------------------------------------------------------
 
-
-def runpod_key() -> str:
-    key = os.getenv("RUNPOD_API_KEY")
-    if not key:
-        raise HTTPException(status_code=500, detail="RUNPOD_API_KEY is not configured")
-    return key
+def _key() -> str | None:
+    return os.getenv("RUNPOD_API_KEY") or None
 
 
 # ---------------------------------------------------------------------------
@@ -73,25 +70,21 @@ class SessionResponse(BaseModel):
 # ---------------------------------------------------------------------------
 
 
-@router.get("/providers", response_model=list[GPUProvider])
-async def list_providers(api_key: str = Depends(runpod_key)) -> list[GPUProvider]:
+@router.get("/providers")
+async def list_providers():
+    api_key = _key()
+    if not api_key:
+        return _LOCAL_RESPONSE
+
     query = """
     query {
       gpuTypes {
-        id
-        displayName
-        memoryInGb
-        secureCloud
-        communityCloud
-        lowestPrice {
-          minimumBidPrice
-          uninterruptablePrice
-        }
+        id displayName memoryInGb secureCloud communityCloud
+        lowestPrice { minimumBidPrice uninterruptablePrice }
       }
     }
     """
     data = await gql(query, {}, api_key)
-
     providers: list[GPUProvider] = []
     for g in data.get("gpuTypes", []):
         lowest = g.get("lowestPrice") or {}
@@ -105,7 +98,6 @@ async def list_providers(api_key: str = Depends(runpod_key)) -> list[GPUProvider
                 available=bool(g.get("secureCloud") or g.get("communityCloud")),
             )
         )
-
     return sorted(providers, key=lambda p: p.price_per_hr)
 
 
@@ -114,18 +106,16 @@ async def list_providers(api_key: str = Depends(runpod_key)) -> list[GPUProvider
 # ---------------------------------------------------------------------------
 
 
-@router.post("/sessions", response_model=SessionResponse, status_code=201)
-async def launch_session(
-    body: LaunchRequest,
-    api_key: str = Depends(runpod_key),
-) -> SessionResponse:
+@router.post("/sessions", status_code=201)
+async def launch_session(body: LaunchRequest):
+    api_key = _key()
+    if not api_key:
+        return _LOCAL_RESPONSE
+
     query = """
     mutation Launch($input: PodFindAndDeployOnDemandInput!) {
       podFindAndDeployOnDemand(input: $input) {
-        id
-        desiredStatus
-        costPerHr
-        machine { gpuDisplayName }
+        id desiredStatus costPerHr machine { gpuDisplayName }
       }
     }
     """
@@ -142,7 +132,6 @@ async def launch_session(
     }
     data = await gql(query, variables, api_key)
     pod = data["podFindAndDeployOnDemand"]
-
     return SessionResponse(
         id=pod["id"],
         status=(pod.get("desiredStatus") or "pending").lower(),
@@ -156,17 +145,16 @@ async def launch_session(
 # ---------------------------------------------------------------------------
 
 
-@router.get("/sessions/{session_id}", response_model=SessionResponse)
-async def get_session(
-    session_id: str,
-    api_key: str = Depends(runpod_key),
-) -> SessionResponse:
+@router.get("/sessions/{session_id}")
+async def get_session(session_id: str):
+    api_key = _key()
+    if not api_key:
+        return _LOCAL_RESPONSE
+
     query = """
     query Status($input: PodFilter!) {
       pod(input: $input) {
-        id
-        desiredStatus
-        costPerHr
+        id desiredStatus costPerHr
         machine { gpuDisplayName }
         runtime { uptimeInSeconds }
       }
@@ -180,15 +168,13 @@ async def get_session(
     cost = float(pod.get("costPerHr") or 0.0)
     runtime = pod.get("runtime") or {}
     uptime: int | None = runtime.get("uptimeInSeconds")
-    accrued = round(uptime / 3600 * cost, 6) if uptime and cost else None
-
     return SessionResponse(
         id=pod["id"],
         status=(pod.get("desiredStatus") or "unknown").lower(),
         gpu_type=(pod.get("machine") or {}).get("gpuDisplayName") or "",
         cost_per_hr=cost,
         uptime_seconds=uptime,
-        accrued_cost=accrued,
+        accrued_cost=round(uptime / 3600 * cost, 6) if uptime and cost else None,
     )
 
 
@@ -198,10 +184,11 @@ async def get_session(
 
 
 @router.delete("/sessions/{session_id}", status_code=204)
-async def terminate_session(
-    session_id: str,
-    api_key: str = Depends(runpod_key),
-) -> None:
+async def terminate_session(session_id: str):
+    api_key = _key()
+    if not api_key:
+        return None  # graceful no-op
+
     query = """
     mutation Terminate($input: PodTerminateInput!) {
       podTerminate(input: $input)

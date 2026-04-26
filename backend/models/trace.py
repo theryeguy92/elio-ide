@@ -52,3 +52,10 @@ class UpdateRunRequest(BaseModel):
     status: RunStatus | None = None
     total_tokens: int | None = None
     total_cost: float | None = None
+
+
+class UpdateStepRequest(BaseModel):
+    status: StepStatus | None = None
+    output: Any | None = None
+    latency_ms: int | None = None
+    token_count: int | None = None

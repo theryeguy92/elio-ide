@@ -190,9 +190,9 @@ export default function StepView({
           <p className="text-xs font-medium text-gray-200 truncate pr-2">{run.name}</p>
           {run.status === 'running' ? (
             wsConnected ? (
-              <Wifi className="h-3 w-3 shrink-0 text-blue-400" title="Live" />
+              <Wifi className="h-3 w-3 shrink-0 text-blue-400" aria-label="Live" />
             ) : (
-              <WifiOff className="h-3 w-3 shrink-0 text-gray-500" title="Connecting…" />
+              <WifiOff className="h-3 w-3 shrink-0 text-gray-500" aria-label="Connecting…" />
             )
           ) : null}
         </div>

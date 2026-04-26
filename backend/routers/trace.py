@@ -1,11 +1,9 @@
 import asyncio
-import os
 import uuid
 from collections import defaultdict
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
-from supabase import Client, create_client
+from fastapi import APIRouter, Depends, HTTPException, WebSocket, WebSocketDisconnect
 
 from models.trace import (
     CreateRunRequest,
@@ -14,35 +12,15 @@ from models.trace import (
     RunWithSteps,
     Step,
     UpdateRunRequest,
+    UpdateStepRequest,
 )
+from storage.base import StorageBackend
+from storage.deps import get_storage
 
 router = APIRouter(prefix="/traces", tags=["traces"])
 
 # ---------------------------------------------------------------------------
-# Supabase — lazy singleton (env vars loaded by dotenv before this module
-# is imported, so initialisation is safe at first request).
-# ---------------------------------------------------------------------------
-
-_supabase: Client | None = None
-
-
-def _sb() -> Client:
-    global _supabase
-    if _supabase is None:
-        url = os.getenv("SUPABASE_URL", "")
-        key = os.getenv("SUPABASE_SERVICE_KEY", "")
-        if not url or not key:
-            raise HTTPException(
-                status_code=500,
-                detail="SUPABASE_URL and SUPABASE_SERVICE_KEY are not configured",
-            )
-        _supabase = create_client(url, key)
-    return _supabase
-
-
-# ---------------------------------------------------------------------------
-# In-process pub/sub for WebSocket live streaming.
-# Each run_id maps to a list of per-connection asyncio Queues.
+# In-process pub/sub for WebSocket live streaming
 # ---------------------------------------------------------------------------
 
 _live: dict[str, list[asyncio.Queue[dict]]] = defaultdict(list)
@@ -59,37 +37,38 @@ def _broadcast(run_id: str, payload: dict) -> None:
 
 
 @router.post("/runs", response_model=Run, status_code=201)
-async def create_run(body: CreateRunRequest) -> Run:
-    sb = _sb()
+async def create_run(
+    body: CreateRunRequest,
+    storage: StorageBackend = Depends(get_storage),
+) -> Run:
     row = {
         "id": str(uuid.uuid4()),
         "name": body.name,
         "status": "running",
         "created_at": datetime.now(timezone.utc).isoformat(),
     }
-    result = await asyncio.to_thread(lambda: sb.table("runs").insert(row).execute())
-    if not result.data:
-        raise HTTPException(500, "Failed to insert run")
-    return Run(**result.data[0])
+    result = await storage.create_run(row)
+    return Run(**result)
 
 
 # ---------------------------------------------------------------------------
-# PATCH /traces/runs/{run_id}  — update status / totals
+# PATCH /traces/runs/{run_id}
 # ---------------------------------------------------------------------------
 
 
 @router.patch("/runs/{run_id}", response_model=Run)
-async def update_run(run_id: str, body: UpdateRunRequest) -> Run:
-    sb = _sb()
+async def update_run(
+    run_id: str,
+    body: UpdateRunRequest,
+    storage: StorageBackend = Depends(get_storage),
+) -> Run:
     patch = body.model_dump(exclude_none=True)
     if not patch:
         raise HTTPException(400, "Nothing to update")
-    result = await asyncio.to_thread(
-        lambda: sb.table("runs").update(patch).eq("id", run_id).execute()
-    )
-    if not result.data:
+    result = await storage.update_run(run_id, patch)
+    if not result:
         raise HTTPException(404, "Run not found")
-    return Run(**result.data[0])
+    return Run(**result)
 
 
 # ---------------------------------------------------------------------------
@@ -98,8 +77,11 @@ async def update_run(run_id: str, body: UpdateRunRequest) -> Run:
 
 
 @router.post("/runs/{run_id}/steps", response_model=Step, status_code=201)
-async def append_step(run_id: str, body: CreateStepRequest) -> Step:
-    sb = _sb()
+async def append_step(
+    run_id: str,
+    body: CreateStepRequest,
+    storage: StorageBackend = Depends(get_storage),
+) -> Step:
     row = {
         "id": str(uuid.uuid4()),
         "run_id": run_id,
@@ -111,11 +93,31 @@ async def append_step(run_id: str, body: CreateStepRequest) -> Step:
         "token_count": body.token_count,
         "timestamp": datetime.now(timezone.utc).isoformat(),
     }
-    result = await asyncio.to_thread(lambda: sb.table("steps").insert(row).execute())
-    if not result.data:
-        raise HTTPException(500, "Failed to insert step")
-    step = Step(**result.data[0])
-    # Push to any WebSocket subscribers watching this run
+    result = await storage.create_step(row)
+    step = Step(**result)
+    _broadcast(run_id, step.model_dump(mode="json"))
+    return step
+
+
+# ---------------------------------------------------------------------------
+# PATCH /traces/runs/{run_id}/steps/{step_id}
+# ---------------------------------------------------------------------------
+
+
+@router.patch("/runs/{run_id}/steps/{step_id}", response_model=Step)
+async def update_step(
+    run_id: str,
+    step_id: str,
+    body: UpdateStepRequest,
+    storage: StorageBackend = Depends(get_storage),
+) -> Step:
+    patch = body.model_dump(exclude_none=True)
+    if not patch:
+        raise HTTPException(400, "Nothing to update")
+    result = await storage.update_step(step_id, patch, run_id=run_id)
+    if not result:
+        raise HTTPException(404, "Step not found")
+    step = Step(**result)
     _broadcast(run_id, step.model_dump(mode="json"))
     return step
 
@@ -126,12 +128,11 @@ async def append_step(run_id: str, body: CreateStepRequest) -> Step:
 
 
 @router.get("/runs", response_model=list[Run])
-async def list_runs() -> list[Run]:
-    sb = _sb()
-    result = await asyncio.to_thread(
-        lambda: sb.table("runs").select("*").order("created_at", desc=True).execute()
-    )
-    return [Run(**row) for row in result.data]
+async def list_runs(
+    storage: StorageBackend = Depends(get_storage),
+) -> list[Run]:
+    rows = await storage.list_runs()
+    return [Run(**r) for r in rows]
 
 
 # ---------------------------------------------------------------------------
@@ -140,34 +141,17 @@ async def list_runs() -> list[Run]:
 
 
 @router.get("/runs/{run_id}", response_model=RunWithSteps)
-async def get_run(run_id: str) -> RunWithSteps:
-    sb = _sb()
-
-    # Fetch run and steps concurrently
-    run_res, steps_res = await asyncio.gather(
-        asyncio.to_thread(
-            lambda: sb.table("runs")
-            .select("*")
-            .eq("id", run_id)
-            .maybe_single()
-            .execute()
-        ),
-        asyncio.to_thread(
-            lambda: sb.table("steps")
-            .select("*")
-            .eq("run_id", run_id)
-            .order("timestamp")
-            .execute()
-        ),
+async def get_run(
+    run_id: str,
+    storage: StorageBackend = Depends(get_storage),
+) -> RunWithSteps:
+    run_row, steps_rows = await asyncio.gather(
+        storage.get_run(run_id),
+        storage.list_steps(run_id),
     )
-
-    if not run_res.data:
+    if not run_row:
         raise HTTPException(404, "Run not found")
-
-    return RunWithSteps(
-        **run_res.data,
-        steps=[Step(**s) for s in steps_res.data],
-    )
+    return RunWithSteps(**run_row, steps=[Step(**s) for s in steps_rows])
 
 
 # ---------------------------------------------------------------------------
@@ -176,16 +160,15 @@ async def get_run(run_id: str) -> RunWithSteps:
 
 
 @router.delete("/runs/{run_id}", status_code=204)
-async def delete_run(run_id: str) -> None:
-    sb = _sb()
-    await asyncio.to_thread(lambda: sb.table("runs").delete().eq("id", run_id).execute())
+async def delete_run(
+    run_id: str,
+    storage: StorageBackend = Depends(get_storage),
+) -> None:
+    await storage.delete_run(run_id)
 
 
 # ---------------------------------------------------------------------------
 # WebSocket /traces/runs/{run_id}/live
-#
-# Streams Step payloads as they are appended via POST /steps.
-# Sends {"type":"__ping__"} every 25 s to keep the connection alive.
 # ---------------------------------------------------------------------------
 
 
