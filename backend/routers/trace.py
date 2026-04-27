@@ -92,6 +92,8 @@ async def append_step(
         "latency_ms": body.latency_ms,
         "token_count": body.token_count,
         "timestamp": datetime.now(timezone.utc).isoformat(),
+        "source_file": body.source_file,
+        "source_line": body.source_line,
     }
     result = await storage.create_step(row)
     step = Step(**result)

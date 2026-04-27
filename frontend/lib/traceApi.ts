@@ -34,6 +34,8 @@ export type Step = {
   latency_ms: number | null
   token_count: number | null
   timestamp: string
+  source_file: string | null
+  source_line: number | null
 }
 
 export type RunWithSteps = Run & { steps: Step[] }

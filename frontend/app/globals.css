@@ -38,3 +38,14 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Trace-to-code jump highlight — applied as a Monaco line decoration */
+.trace-jump-highlight {
+  animation: trace-jump-fade 3s ease-out forwards;
+}
+
+@keyframes trace-jump-fade {
+  0%   { background: rgba(253, 224, 71, 0.25); }
+  60%  { background: rgba(253, 224, 71, 0.18); }
+  100% { background: rgba(253, 224, 71, 0); }
+}

@@ -32,7 +32,9 @@ CREATE TABLE IF NOT EXISTS steps (
     output      TEXT,
     latency_ms  INTEGER,
     token_count INTEGER,
-    timestamp   TEXT NOT NULL
+    timestamp   TEXT NOT NULL,
+    source_file TEXT,
+    source_line INTEGER
 );
 
 CREATE INDEX IF NOT EXISTS steps_run_id_idx ON steps(run_id);
@@ -53,9 +55,18 @@ class SQLiteStorage(StorageBackend):
             db = await aiosqlite.connect(self.db_path)
             db.row_factory = sqlite3.Row
             await db.executescript(_SCHEMA)
-            await db.commit()
+            await self._migrate(db)
             self._db = db
         return self._db
+
+    async def _migrate(self, db: aiosqlite.Connection) -> None:
+        """Add columns introduced after the initial schema without losing data."""
+        cur = await db.execute("PRAGMA table_info(steps)")
+        existing = {row[1] for row in await cur.fetchall()}
+        for col, ddl in [("source_file", "TEXT"), ("source_line", "INTEGER")]:
+            if col not in existing:
+                await db.execute(f"ALTER TABLE steps ADD COLUMN {col} {ddl}")
+        await db.commit()
 
     def _to_dict(self, row: sqlite3.Row | None) -> dict | None:
         if row is None:
@@ -124,8 +135,9 @@ class SQLiteStorage(StorageBackend):
         db = await self._conn()
         await db.execute(
             "INSERT INTO steps "
-            "(id, run_id, type, status, input, output, latency_ms, token_count, timestamp) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            "(id, run_id, type, status, input, output, latency_ms, token_count, timestamp, "
+            "source_file, source_line) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
             (
                 row["id"],
                 row["run_id"],
@@ -136,6 +148,8 @@ class SQLiteStorage(StorageBackend):
                 row.get("latency_ms"),
                 row.get("token_count"),
                 row["timestamp"],
+                row.get("source_file"),
+                row.get("source_line"),
             ),
         )
         await db.commit()

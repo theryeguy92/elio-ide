@@ -20,6 +20,8 @@ class Step(BaseModel):
     latency_ms: int | None = None
     token_count: int | None = None
     timestamp: datetime
+    source_file: str | None = None
+    source_line: int | None = None
 
 
 class Run(BaseModel):
@@ -46,6 +48,8 @@ class CreateStepRequest(BaseModel):
     output: Any | None = None
     latency_ms: int | None = None
     token_count: int | None = None
+    source_file: str | None = None
+    source_line: int | None = None
 
 
 class UpdateRunRequest(BaseModel):

@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { CheckCircle, XCircle, Loader, Wifi, WifiOff } from 'lucide-react'
 import { traceApi, type RunWithSteps, type Step, type StepStatus } from '@/lib/traceApi'
+import { useCodeJump } from '@/context/CodeJumpContext'
 import { STEP_META } from './stepMeta'
 import StepInspector from './StepInspector'
 
@@ -48,6 +49,18 @@ function StepRow({
 }) {
   const meta = STEP_META[step.type]
   const Icon = meta.icon
+  const { jumpToLine } = useCodeJump()
+
+  const sourceLabel =
+    step.source_file && step.source_line != null
+      ? `${step.source_file.split('/').pop()}:${step.source_line}`
+      : null
+
+  const handleSourceClick = (e: React.MouseEvent) => {
+    if (!step.source_file || step.source_line == null) return
+    e.stopPropagation()
+    jumpToLine(step.source_file, step.source_line)
+  }
 
   return (
     <div className="relative pl-8">
@@ -79,13 +92,22 @@ function StepRow({
           >
             {meta.label}
           </p>
-          <div className="flex items-center gap-2 mt-0.5">
+          <div className="flex items-center gap-2 mt-0.5 flex-wrap">
             <span className="text-[10px] text-gray-500">{formatTs(step.timestamp)}</span>
             {step.latency_ms !== null && (
               <span className="text-[10px] text-gray-500">{step.latency_ms}ms</span>
             )}
             {step.token_count !== null && (
               <span className="text-[10px] text-gray-500">{step.token_count}t</span>
+            )}
+            {sourceLabel && (
+              <button
+                onClick={handleSourceClick}
+                className="text-[10px] text-blue-400 hover:text-blue-300 hover:underline font-mono transition-colors"
+                title={`Jump to ${step.source_file}:${step.source_line}`}
+              >
+                {sourceLabel}
+              </button>
             )}
           </div>
         </div>

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import inspect
+import os
 import time
 from typing import Any
 
@@ -9,6 +11,33 @@ import requests
 from langchain_core.callbacks import BaseCallbackHandler
 
 API_BASE = "http://localhost:8000"
+
+# Path fragments that identify non-user frames to skip when walking the stack.
+_SKIP = (
+    "trace_client.py",
+    "langchain",
+    "site-packages",
+    os.sep + "lib" + os.sep + "python",  # /lib/python3.x/ (stdlib + venv)
+    "<",                                   # <frozen ...>, <string>, etc.
+)
+
+
+def _source_location() -> tuple[str | None, int | None]:
+    """Return (filename, lineno) of the first user-code frame on the call stack.
+
+    Walks up from the current frame, skipping langchain internals, this file,
+    the Python standard library, and installed packages.
+    """
+    frame = inspect.currentframe()
+    try:
+        while frame is not None:
+            fn = frame.f_code.co_filename
+            if not any(pat in fn for pat in _SKIP) and os.path.isfile(fn):
+                return fn, frame.f_lineno
+            frame = frame.f_back
+    finally:
+        del frame  # break reference cycle
+    return None, None
 
 
 class ElioTracer(BaseCallbackHandler):
@@ -99,9 +128,16 @@ class ElioTracer(BaseCallbackHandler):
             return
         lc_id = str(run_id)
         self._step_starts[lc_id] = time.monotonic()
+        source_file, source_line = _source_location()
         resp = self._post(
             f"/traces/runs/{self._run_id}/steps",
-            {"type": "llm_call", "status": "running", "input": input_payload},
+            {
+                "type": "llm_call",
+                "status": "running",
+                "input": input_payload,
+                "source_file": source_file,
+                "source_line": source_line,
+            },
         )
         if step_id := resp.get("id"):
             self._step_ids[lc_id] = step_id
@@ -190,12 +226,15 @@ class ElioTracer(BaseCallbackHandler):
         lc_id = str(run_id)
         self._step_starts[lc_id] = time.monotonic()
         tool_name = serialized.get("name", "unknown_tool")
+        source_file, source_line = _source_location()
         resp = self._post(
             f"/traces/runs/{self._run_id}/steps",
             {
                 "type": "tool_call",
                 "status": "running",
                 "input": {"tool_name": tool_name, "input": input_str},
+                "source_file": source_file,
+                "source_line": source_line,
             },
         )
         if step_id := resp.get("id"):

@@ -10,8 +10,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+from routers.compute import router as compute_router
+from routers.fs import router as fs_router
 from routers.git import router as git_router
 from routers.gpu import router as gpu_router
+from routers.run import router as run_router
 from routers.stakeholder import router as stakeholder_router
 from routers.trace import router as trace_router
 from storage.deps import set_storage
@@ -49,7 +52,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(compute_router)
+app.include_router(fs_router)
 app.include_router(gpu_router)
+app.include_router(run_router)
 app.include_router(trace_router)
 app.include_router(stakeholder_router)
 app.include_router(git_router)
