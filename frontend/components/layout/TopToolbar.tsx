@@ -15,22 +15,12 @@ import { useRun } from '@/context/RunContext'
 import { useEditor } from '@/context/EditorContext'
 
 // ---------------------------------------------------------------------------
-// Menu definitions
+// Dropdown menu
 // ---------------------------------------------------------------------------
 
 type MenuItem = { label: string; shortcut?: string; action: () => void; divider?: boolean }
 
-// ---------------------------------------------------------------------------
-// Dropdown menu
-// ---------------------------------------------------------------------------
-
-function MenuDropdown({
-  label,
-  items,
-}: {
-  label: string
-  items: MenuItem[]
-}) {
+function MenuDropdown({ label, items }: { label: string; items: MenuItem[] }) {
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
@@ -47,23 +37,23 @@ function MenuDropdown({
     <div className="relative" ref={ref}>
       <button
         onClick={() => setOpen(!open)}
-        className="px-2 py-1 text-xs text-gray-300 hover:text-white hover:bg-[#3c3c3c] rounded transition-colors"
+        className="px-2 py-1 text-[11px] text-elio-text-muted hover:text-elio-text hover:bg-elio-surface-2 rounded transition-colors duration-150"
       >
         {label}
       </button>
 
       {open && (
-        <div className="absolute left-0 top-full mt-0.5 w-52 bg-[#252526] border border-[#3c3c3c] rounded shadow-xl z-50 py-1">
+        <div className="absolute left-0 top-full mt-0.5 w-52 bg-elio-surface border border-elio-border rounded shadow-2xl z-50 py-1">
           {items.map((item, i) => (
             <div key={i}>
-              {item.divider && <div className="my-1 border-t border-[#3c3c3c]" />}
+              {item.divider && <div className="my-1 border-t border-elio-border" />}
               <button
                 onClick={() => { setOpen(false); item.action() }}
-                className="w-full flex items-center justify-between px-3 py-1.5 text-xs text-gray-300 hover:bg-[#2a2d2e] hover:text-white transition-colors text-left"
+                className="w-full flex items-center justify-between px-3 py-1.5 text-[11px] text-elio-text-muted hover:bg-elio-surface-2 hover:text-elio-text transition-colors duration-150 text-left"
               >
                 <span>{item.label}</span>
                 {item.shortcut && (
-                  <span className="text-gray-500 font-mono">{item.shortcut}</span>
+                  <span className="text-elio-text-dim font-mono text-[10px]">{item.shortcut}</span>
                 )}
               </button>
             </div>
@@ -81,6 +71,7 @@ function MenuDropdown({
 export default function TopToolbar() {
   const { runState, startRun, stopRun } = useRun()
   const {
+    tabs,
     activeTab,
     saveActive,
     toggleSidebar,
@@ -91,7 +82,7 @@ export default function TopToolbar() {
 
   const [branch, setBranch] = useState<string>('main')
   const [branches, setBranches] = useState<BranchEntry[]>([])
-  const [dropdownOpen, setDropdownOpen] = useState(false)
+  const [branchOpen, setBranchOpen] = useState(false)
   const [switching, setSwitching] = useState(false)
   const branchRef = useRef<HTMLDivElement>(null)
 
@@ -100,47 +91,40 @@ export default function TopToolbar() {
   }, [])
 
   useEffect(() => {
-    if (!dropdownOpen) return
+    if (!branchOpen) return
     gitApi.branches().then(setBranches).catch(() => {})
-  }, [dropdownOpen])
+  }, [branchOpen])
 
   useEffect(() => {
-    if (!dropdownOpen) return
+    if (!branchOpen) return
     const handler = (e: MouseEvent) => {
       if (branchRef.current && !branchRef.current.contains(e.target as Node))
-        setDropdownOpen(false)
+        setBranchOpen(false)
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
-  }, [dropdownOpen])
+  }, [branchOpen])
 
   const handleCheckout = async (name: string) => {
-    if (name === branch) { setDropdownOpen(false); return }
+    if (name === branch) { setBranchOpen(false); return }
     setSwitching(true)
-    try {
-      await gitApi.checkout(name)
-      setBranch(name)
-    } catch {
-      // leave branch unchanged
-    } finally {
-      setSwitching(false)
-      setDropdownOpen(false)
-    }
+    try { await gitApi.checkout(name); setBranch(name) } catch { /* keep current */ }
+    finally { setSwitching(false); setBranchOpen(false) }
   }
 
+  const activeTabMeta = tabs.find((t) => t.path === activeTab)
+  const activeFileName = activeTab ? activeTab.split('/').pop() : null
   const localBranches = branches.filter((b) => !b.remote)
 
   const fileMenu: MenuItem[] = [
     { label: 'Save', shortcut: 'Ctrl+S', action: saveActive },
   ]
-
   const viewMenu: MenuItem[] = [
     { label: 'Toggle Sidebar', shortcut: 'Ctrl+B', action: toggleSidebar },
     { label: 'Toggle Terminal', shortcut: 'Ctrl+`', action: toggleTerminal },
     { label: 'Toggle Trace Panel', action: toggleTrace },
     { label: 'Compute Settings', divider: true, action: () => setComputePanelOpen(true) },
   ]
-
   const runMenu: MenuItem[] = [
     {
       label: runState === 'idle' ? 'Run Active File' : 'Stop',
@@ -153,80 +137,67 @@ export default function TopToolbar() {
   ]
 
   return (
-    <header className="h-10 bg-[#323233] border-b border-[#3c3c3c] flex items-center px-3 gap-4 shrink-0">
-      <div className="flex items-center gap-2">
-        <span className="text-sm font-semibold text-white">⚡ Elio IDE</span>
+    <header className="h-10 bg-elio-bg border-b border-elio-border flex items-center px-3 gap-3 shrink-0">
+      {/* Brand */}
+      <div className="flex items-center gap-2 shrink-0">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/elio-logo.png" alt="Elio" height={22} width={22} className="h-[22px] w-[22px] object-contain" />
+        <span className="text-[13px] font-semibold text-elio-primary tracking-tight">elio</span>
       </div>
 
-      <div className="h-4 w-px bg-[#4c4c4c]" />
+      <div className="h-4 w-px bg-elio-border shrink-0" />
 
-      <nav className="flex items-center gap-1">
+      {/* Menu bar */}
+      <nav className="flex items-center gap-0.5 shrink-0">
         <MenuDropdown label="File" items={fileMenu} />
         <MenuDropdown label="View" items={viewMenu} />
         <MenuDropdown label="Run" items={runMenu} />
       </nav>
 
-      <div className="flex-1" />
-
-      <div className="flex items-center gap-2">
-        {/* Run / Stop */}
-        {runState === 'idle' ? (
-          <button
-            onClick={() => activeTab && startRun(activeTab)}
-            disabled={!activeTab}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-green-600 hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            <Play className="h-3 w-3 text-white fill-white" />
-            <span className="text-xs text-white font-medium">Run</span>
-          </button>
-        ) : runState === 'starting' ? (
-          <button
-            disabled
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-green-700 opacity-75 cursor-not-allowed"
-          >
-            <Loader className="h-3 w-3 text-white animate-spin" />
-            <span className="text-xs text-white font-medium">Starting…</span>
-          </button>
-        ) : (
-          <button
-            onClick={stopRun}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded bg-red-600 hover:bg-red-700 transition-colors"
-          >
-            <Square className="h-3 w-3 text-white fill-white" />
-            <span className="text-xs text-white font-medium">Stop</span>
-          </button>
+      {/* Center — active filename */}
+      <div className="flex-1 flex items-center justify-center">
+        {activeFileName && (
+          <span className="text-[11px] text-elio-text-muted font-mono select-none">
+            {activeFileName}
+            {activeTabMeta?.isDirty && (
+              <span className="ml-1 text-elio-primary">●</span>
+            )}
+          </span>
         )}
+      </div>
 
-        {/* Branch switcher */}
+      {/* Right side */}
+      <div className="flex items-center gap-1.5 shrink-0">
+        {/* Git branch pill */}
         <div className="relative" ref={branchRef}>
           <button
-            onClick={() => setDropdownOpen(!dropdownOpen)}
-            className="flex items-center gap-1 px-2 py-1 rounded hover:bg-[#3c3c3c] transition-colors text-xs text-gray-400 hover:text-gray-200"
+            onClick={() => setBranchOpen(!branchOpen)}
+            className="flex items-center gap-1.5 px-2 py-1 rounded bg-elio-surface border border-elio-border hover:border-elio-border-bright text-[11px] text-elio-text-muted hover:text-elio-text transition-all duration-150"
           >
             {switching ? (
               <Loader className="h-3 w-3 animate-spin" />
             ) : (
               <GitBranch className="h-3 w-3" />
             )}
-            <span className="max-w-[100px] truncate">{branch}</span>
+            <span className="max-w-[90px] truncate">{branch}</span>
             <ChevronDown
-              className={`h-3 w-3 transition-transform ${dropdownOpen ? 'rotate-180' : ''}`}
+              className={`h-3 w-3 transition-transform duration-150 ${branchOpen ? 'rotate-180' : ''}`}
             />
           </button>
 
-          {dropdownOpen && (
-            <div className="absolute right-0 top-full mt-1 w-48 bg-[#252526] border border-[#3c3c3c] rounded shadow-xl z-50 py-1">
+          {branchOpen && (
+            <div className="absolute right-0 top-full mt-1 w-48 bg-elio-surface border border-elio-border rounded shadow-2xl z-50 py-1">
               {localBranches.length === 0 ? (
-                <p className="px-3 py-2 text-xs text-gray-500">No branches found</p>
+                <p className="px-3 py-2 text-[11px] text-elio-text-dim">No branches found</p>
               ) : (
                 localBranches.map((b) => (
                   <button
                     key={b.name}
                     onClick={() => handleCheckout(b.name)}
-                    className="w-full flex items-center gap-2 px-3 py-1.5 text-xs text-gray-300 hover:bg-[#2a2d2e] hover:text-white transition-colors text-left"
+                    className="w-full flex items-center gap-2 px-3 py-1.5 text-[11px] text-elio-text-muted hover:bg-elio-surface-2 hover:text-elio-text transition-colors duration-150 text-left"
                   >
                     <Check
-                      className={`h-3 w-3 shrink-0 ${b.name === branch ? 'text-blue-400' : 'text-transparent'}`}
+                      className={`h-3 w-3 shrink-0 ${b.name === branch ? 'text-elio-primary' : 'text-transparent'}`}
                     />
                     <span className="truncate">{b.name}</span>
                   </button>
@@ -236,13 +207,43 @@ export default function TopToolbar() {
           )}
         </div>
 
+        {/* Compute button */}
         <button
           onClick={() => setComputePanelOpen(true)}
-          className="p-1.5 rounded hover:bg-[#3c3c3c] transition-colors"
+          className="flex items-center gap-1.5 px-2 py-1 rounded bg-elio-surface border border-elio-border hover:border-elio-border-bright text-[11px] text-elio-text-muted hover:text-elio-text transition-all duration-150"
           aria-label="Compute settings"
         >
-          <Settings className="h-4 w-4 text-gray-400" />
+          <Settings className="h-3.5 w-3.5" />
+          <span>Compute</span>
         </button>
+
+        {/* Run / Stop */}
+        {runState === 'idle' ? (
+          <button
+            onClick={() => activeTab && startRun(activeTab)}
+            disabled={!activeTab}
+            className="flex items-center gap-1.5 px-3 py-1 rounded bg-elio-primary hover:bg-elio-primary-dim text-black font-semibold text-[11px] disabled:opacity-40 disabled:cursor-not-allowed transition-colors duration-150"
+          >
+            <Play className="h-3 w-3 fill-black" />
+            Run
+          </button>
+        ) : runState === 'starting' ? (
+          <button
+            disabled
+            className="flex items-center gap-1.5 px-3 py-1 rounded bg-elio-primary opacity-60 cursor-not-allowed text-black font-semibold text-[11px]"
+          >
+            <Loader className="h-3 w-3 animate-spin" />
+            Starting…
+          </button>
+        ) : (
+          <button
+            onClick={stopRun}
+            className="flex items-center gap-1.5 px-3 py-1 rounded bg-elio-error hover:opacity-90 text-white font-semibold text-[11px] transition-opacity duration-150"
+          >
+            <Square className="h-3 w-3 fill-white" />
+            Stop
+          </button>
+        )}
       </div>
     </header>
   )

@@ -7,34 +7,17 @@ import { useCodeJump } from '@/context/CodeJumpContext'
 import { STEP_META } from './stepMeta'
 import StepInspector from './StepInspector'
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
 function formatTs(iso: string): string {
   return new Date(iso).toLocaleTimeString('en-US', {
-    hour12: false,
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
+    hour12: false, hour: '2-digit', minute: '2-digit', second: '2-digit',
   })
 }
 
-// ---------------------------------------------------------------------------
-// Step status icon
-// ---------------------------------------------------------------------------
-
 function StepStatusIcon({ status }: { status: StepStatus }) {
-  if (status === 'completed')
-    return <CheckCircle className="h-3.5 w-3.5 shrink-0 text-green-400" />
-  if (status === 'failed')
-    return <XCircle className="h-3.5 w-3.5 shrink-0 text-red-400" />
-  return <Loader className="h-3.5 w-3.5 shrink-0 text-blue-400 animate-spin" />
+  if (status === 'completed') return <CheckCircle className="h-3 w-3 shrink-0 text-elio-success" />
+  if (status === 'failed')    return <XCircle    className="h-3 w-3 shrink-0 text-elio-error" />
+  return <Loader className="h-3 w-3 shrink-0 text-elio-primary animate-spin" />
 }
-
-// ---------------------------------------------------------------------------
-// Single step row
-// ---------------------------------------------------------------------------
 
 function StepRow({
   step,
@@ -50,6 +33,7 @@ function StepRow({
   const meta = STEP_META[step.type]
   const Icon = meta.icon
   const { jumpToLine } = useCodeJump()
+  const isRunning = step.status === 'running'
 
   const sourceLabel =
     step.source_file && step.source_line != null
@@ -63,47 +47,57 @@ function StepRow({
   }
 
   return (
-    <div className="relative pl-8">
-      {/* Vertical timeline connector */}
+    <div
+      className={`relative transition-colors duration-150 ${
+        selected
+          ? 'bg-elio-surface-3 border-l-2 border-elio-primary'
+          : isRunning
+            ? 'border-l-2 border-elio-primary/50'
+            : 'border-l-2 border-transparent'
+      }`}
+    >
+      {/* Timeline connector */}
       {!isLast && (
-        <div className="absolute left-[13px] top-5 bottom-0 w-px bg-[#3c3c3c]" />
+        <div className="absolute left-[19px] top-6 bottom-0 w-px bg-elio-border" />
       )}
 
-      {/* Step type icon — sits on the timeline */}
-      <div className={`absolute left-1 top-1.5 p-1 rounded ${meta.color}`}>
-        <Icon className="h-3 w-3" />
+      {/* Step type icon on timeline */}
+      <div className={`absolute left-2.5 top-2 p-1 rounded ${meta.color}`}>
+        <Icon className="h-2.5 w-2.5" />
       </div>
 
       <button
         onClick={onClick}
-        className={`w-full flex items-start gap-2 py-1.5 pr-2 rounded text-left transition-colors ${
-          selected ? 'bg-[#2a3a4a]' : 'hover:bg-[#2a2d2e]'
-        }`}
+        className="w-full flex items-start gap-2 py-2 pr-2 pl-8 text-left hover:bg-elio-surface-2 transition-colors duration-150"
       >
-        <div className="mt-0.5">
+        <div className="mt-0.5 shrink-0">
           <StepStatusIcon status={step.status} />
         </div>
 
         <div className="flex-1 min-w-0">
-          <p
-            className={`text-xs font-medium truncate ${
-              step.status === 'running' ? 'text-white' : 'text-gray-200'
-            }`}
-          >
+          <p className={`text-[11px] font-medium truncate ${
+            isRunning ? 'text-elio-text' : 'text-elio-text-muted'
+          }`}>
             {meta.label}
+            {isRunning && (
+              <span className="ml-1.5 relative inline-flex h-1.5 w-1.5">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-elio-primary opacity-70" />
+                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-elio-primary" />
+              </span>
+            )}
           </p>
           <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-            <span className="text-[10px] text-gray-500">{formatTs(step.timestamp)}</span>
+            <span className="text-[10px] text-elio-text-dim font-mono">{formatTs(step.timestamp)}</span>
             {step.latency_ms !== null && (
-              <span className="text-[10px] text-gray-500">{step.latency_ms}ms</span>
+              <span className="text-[10px] text-elio-text-dim">{step.latency_ms}ms</span>
             )}
             {step.token_count !== null && (
-              <span className="text-[10px] text-gray-500">{step.token_count}t</span>
+              <span className="text-[10px] text-elio-text-dim">{step.token_count}t</span>
             )}
             {sourceLabel && (
               <button
                 onClick={handleSourceClick}
-                className="text-[10px] text-blue-400 hover:text-blue-300 hover:underline font-mono transition-colors"
+                className="text-[10px] font-mono px-1 py-0.5 rounded bg-elio-surface-3 text-elio-primary hover:bg-elio-primary/10 transition-colors duration-150"
                 title={`Jump to ${step.source_file}:${step.source_line}`}
               >
                 {sourceLabel}
@@ -116,17 +110,7 @@ function StepRow({
   )
 }
 
-// ---------------------------------------------------------------------------
-// StepView
-// ---------------------------------------------------------------------------
-
-export default function StepView({
-  runId,
-  onBack,
-}: {
-  runId: string
-  onBack: () => void
-}) {
+export default function StepView({ runId, onBack }: { runId: string; onBack: () => void }) {
   const [run, setRun] = useState<RunWithSteps | null>(null)
   const [steps, setSteps] = useState<Step[]>([])
   const [loading, setLoading] = useState(true)
@@ -136,57 +120,42 @@ export default function StepView({
 
   const stepsEndRef = useRef<HTMLDivElement>(null)
 
-  // Load run + initial steps
   useEffect(() => {
     setLoading(true)
     setError(null)
     traceApi
       .getRun(runId)
-      .then((data) => {
-        setRun(data)
-        setSteps(data.steps)
-      })
+      .then((data) => { setRun(data); setSteps(data.steps) })
       .catch((err: Error) => setError(err.message))
       .finally(() => setLoading(false))
   }, [runId])
 
-  // WebSocket — only while run is active
   useEffect(() => {
     if (!run || run.status !== 'running') return
-    const unsub = traceApi.subscribe(
+    return traceApi.subscribe(
       runId,
       (step) => {
         setSteps((prev) => {
-          // Upsert: replace if we've already seen this id (status update),
-          // otherwise append.
           const idx = prev.findIndex((s) => s.id === step.id)
-          if (idx >= 0) {
-            const next = [...prev]
-            next[idx] = step
-            return next
-          }
+          if (idx >= 0) { const next = [...prev]; next[idx] = step; return next }
           return [...prev, step]
         })
       },
       setWsConnected,
     )
-    return unsub
   }, [runId, run?.status])
 
-  // Auto-scroll to newest step
   useEffect(() => {
     stepsEndRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [steps.length])
 
-  // ---------------------------------------------------------------------------
-
   const completed = steps.filter((s) => s.status === 'completed').length
-  const failed = steps.filter((s) => s.status === 'failed').length
-  const running = steps.filter((s) => s.status === 'running').length
+  const failed    = steps.filter((s) => s.status === 'failed').length
+  const running   = steps.filter((s) => s.status === 'running').length
 
   if (loading) {
     return (
-      <div className="flex-1 flex items-center justify-center gap-2 text-gray-500 text-xs">
+      <div className="flex-1 flex items-center justify-center gap-2 text-elio-text-dim text-[11px]">
         <Loader className="h-3.5 w-3.5 animate-spin" />
         Loading run…
       </div>
@@ -196,8 +165,8 @@ export default function StepView({
   if (error || !run) {
     return (
       <div className="flex-1 flex flex-col items-center justify-center gap-2 px-4 text-center">
-        <p className="text-xs text-red-400">{error ?? 'Run not found'}</p>
-        <button onClick={onBack} className="text-xs text-blue-400 hover:text-blue-300">
+        <p className="text-[11px] text-elio-error">{error ?? 'Run not found'}</p>
+        <button onClick={onBack} className="text-[11px] text-elio-primary hover:opacity-80">
           ← Back to runs
         </button>
       </div>
@@ -207,40 +176,32 @@ export default function StepView({
   return (
     <>
       {/* Run summary bar */}
-      <div className="px-3 py-2 border-b border-[#3c3c3c] shrink-0">
+      <div className="px-3 py-2 border-b border-elio-border shrink-0">
         <div className="flex items-center justify-between">
-          <p className="text-xs font-medium text-gray-200 truncate pr-2">{run.name}</p>
+          <p className="text-[11px] font-medium text-elio-text truncate pr-2">{run.name}</p>
           {run.status === 'running' ? (
-            wsConnected ? (
-              <Wifi className="h-3 w-3 shrink-0 text-blue-400" aria-label="Live" />
-            ) : (
-              <WifiOff className="h-3 w-3 shrink-0 text-gray-500" aria-label="Connecting…" />
-            )
+            wsConnected
+              ? <Wifi    className="h-3 w-3 shrink-0 text-elio-primary" aria-label="Live" />
+              : <WifiOff className="h-3 w-3 shrink-0 text-elio-text-dim" aria-label="Connecting…" />
           ) : null}
         </div>
-        <div className="flex items-center gap-3 mt-1">
-          <span className="text-[10px] text-gray-500">{steps.length} steps</span>
-          {completed > 0 && (
-            <span className="text-[10px] text-green-500">{completed} ok</span>
-          )}
-          {running > 0 && (
-            <span className="text-[10px] text-blue-400">{running} running</span>
-          )}
-          {failed > 0 && (
-            <span className="text-[10px] text-red-400">{failed} failed</span>
-          )}
+        <div className="flex items-center gap-3 mt-0.5">
+          <span className="text-[10px] text-elio-text-dim">{steps.length} steps</span>
+          {completed > 0 && <span className="text-[10px] text-elio-success">{completed} ok</span>}
+          {running > 0   && <span className="text-[10px] text-elio-primary">{running} running</span>}
+          {failed > 0    && <span className="text-[10px] text-elio-error">{failed} failed</span>}
           {run.total_tokens !== null && (
-            <span className="text-[10px] text-gray-500">
-              {run.total_tokens.toLocaleString()} tok
+            <span className="text-[10px] text-elio-text-dim font-mono">
+              {run.total_tokens.toLocaleString()}t
             </span>
           )}
         </div>
       </div>
 
       {/* Step list */}
-      <div className="flex-1 overflow-y-auto px-2 py-2 space-y-0.5">
+      <div className="flex-1 overflow-y-auto py-1">
         {steps.length === 0 ? (
-          <p className="text-xs text-gray-600 text-center mt-8">No steps yet.</p>
+          <p className="text-[10px] text-elio-text-dim text-center mt-8">No steps yet.</p>
         ) : (
           steps.map((step, index) => (
             <StepRow
@@ -248,21 +209,15 @@ export default function StepView({
               step={step}
               isLast={index === steps.length - 1}
               selected={selectedStep?.id === step.id}
-              onClick={() =>
-                setSelectedStep((prev) => (prev?.id === step.id ? null : step))
-              }
+              onClick={() => setSelectedStep((prev) => (prev?.id === step.id ? null : step))}
             />
           ))
         )}
         <div ref={stepsEndRef} />
       </div>
 
-      {/* Step inspector — shown when a step is selected */}
       {selectedStep && (
-        <StepInspector
-          step={selectedStep}
-          onClose={() => setSelectedStep(null)}
-        />
+        <StepInspector step={selectedStep} onClose={() => setSelectedStep(null)} />
       )}
     </>
   )

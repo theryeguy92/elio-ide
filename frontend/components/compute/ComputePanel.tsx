@@ -11,34 +11,22 @@ import {
 } from '@/lib/computeApi'
 import { useEditor } from '@/context/EditorContext'
 
-// ---------------------------------------------------------------------------
-// Helpers
-// ---------------------------------------------------------------------------
-
-function mbToGb(mb: number): string {
-  return (mb / 1024).toFixed(1)
-}
-
-// ---------------------------------------------------------------------------
-// ComputePanel
-// ---------------------------------------------------------------------------
+function mbToGb(mb: number): string { return (mb / 1024).toFixed(1) }
 
 export default function ComputePanel() {
   const { computePanelOpen, setComputePanelOpen } = useEditor()
 
-  const [status, setStatus] = useState<ComputeStatus | null>(null)
-  const [models, setModels] = useState<ComputeModels | null>(null)
+  const [status, setStatus]   = useState<ComputeStatus | null>(null)
+  const [models, setModels]   = useState<ComputeModels | null>(null)
   const [settings, setSettings] = useState<SettingsMeta | null>(null)
-  const [loadingStatus, setLoadingStatus] = useState(false)
-  const [saving, setSaving] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [saving, setSaving]   = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
-
   const [form, setForm] = useState<SettingsPayload>({})
 
   useEffect(() => {
     if (!computePanelOpen) return
-
-    setLoadingStatus(true)
+    setLoading(true)
     Promise.all([computeApi.status(), computeApi.models(), computeApi.getSettings()])
       .then(([s, m, cfg]) => {
         setStatus(s)
@@ -47,7 +35,7 @@ export default function ComputePanel() {
         setForm({ ACTIVE_MODEL: cfg.ACTIVE_MODEL ?? '' })
       })
       .catch(() => {})
-      .finally(() => setLoadingStatus(false))
+      .finally(() => setLoading(false))
   }, [computePanelOpen])
 
   const handleSave = async () => {
@@ -72,27 +60,24 @@ export default function ComputePanel() {
 
   return (
     <div className="fixed inset-0 z-50 flex">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/50"
-        onClick={() => setComputePanelOpen(false)}
-      />
+      <div className="absolute inset-0 bg-black/60" onClick={() => setComputePanelOpen(false)} />
 
-      {/* Panel */}
-      <div className="relative ml-auto w-96 h-full bg-[#252526] border-l border-[#3c3c3c] flex flex-col shadow-2xl overflow-y-auto">
+      <div className="relative ml-auto w-96 h-full bg-elio-surface border-l border-elio-border flex flex-col shadow-2xl overflow-y-auto">
         {/* Header */}
-        <div className="flex items-center justify-between px-4 py-3 border-b border-[#3c3c3c] shrink-0">
-          <h2 className="text-sm font-semibold text-gray-200">Compute Settings</h2>
+        <div className="flex items-center justify-between px-4 py-3 border-b border-elio-border shrink-0">
+          <h2 className="text-[11px] font-semibold uppercase tracking-widest text-elio-text-muted">
+            Compute Settings
+          </h2>
           <button
             onClick={() => setComputePanelOpen(false)}
-            className="p-1 rounded hover:bg-[#3c3c3c] transition-colors"
+            className="p-1 rounded hover:bg-elio-surface-2 transition-colors duration-150"
           >
-            <X className="h-4 w-4 text-gray-400" />
+            <X className="h-4 w-4 text-elio-text-dim" />
           </button>
         </div>
 
-        {loadingStatus ? (
-          <div className="flex-1 flex items-center justify-center gap-2 text-gray-500 text-xs">
+        {loading ? (
+          <div className="flex-1 flex items-center justify-center gap-2 text-elio-text-dim text-[11px]">
             <Loader className="h-3.5 w-3.5 animate-spin" />
             Loading…
           </div>
@@ -101,20 +86,20 @@ export default function ComputePanel() {
             {/* Ollama status */}
             {status && (
               <section>
-                <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+                <h3 className="text-[10px] font-semibold uppercase tracking-widest text-elio-text-dim mb-2">
                   Local Inference
                 </h3>
-                <div className="flex items-center gap-2 p-3 rounded bg-[#1e1e1e]">
-                  <Zap className="h-4 w-4 text-yellow-400 shrink-0" />
-                  <span className="text-xs text-gray-300 flex-1">Ollama</span>
+                <div className="flex items-center gap-2 p-3 bg-elio-surface-2 border border-elio-border">
+                  <Zap className="h-3.5 w-3.5 text-elio-primary shrink-0" />
+                  <span className="text-[11px] text-elio-text-muted flex-1">Ollama</span>
                   {status.ollama.running ? (
-                    <span className="flex items-center gap-1 text-xs text-green-400">
-                      <CheckCircle className="h-3.5 w-3.5" />
+                    <span className="flex items-center gap-1 text-[10px] text-elio-success">
+                      <CheckCircle className="h-3 w-3" />
                       Running
                     </span>
                   ) : (
-                    <span className="flex items-center gap-1 text-xs text-red-400">
-                      <XCircle className="h-3.5 w-3.5" />
+                    <span className="flex items-center gap-1 text-[10px] text-elio-error">
+                      <XCircle className="h-3 w-3" />
                       Offline
                     </span>
                   )}
@@ -125,35 +110,33 @@ export default function ComputePanel() {
             {/* GPU info */}
             {status && status.gpus.length > 0 && (
               <section>
-                <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+                <h3 className="text-[10px] font-semibold uppercase tracking-widest text-elio-text-dim mb-2">
                   GPUs
                 </h3>
                 <div className="space-y-2">
                   {status.gpus.map((gpu, i) => (
-                    <div key={i} className="p-3 rounded bg-[#1e1e1e]">
+                    <div key={i} className="p-3 bg-elio-surface-2 border border-elio-border">
                       <div className="flex items-center gap-2 mb-2">
                         <Cpu className="h-3.5 w-3.5 text-blue-400 shrink-0" />
-                        <span className="text-xs text-gray-200 truncate">{gpu.name}</span>
+                        <span className="text-[11px] text-elio-text truncate">{gpu.name}</span>
                       </div>
                       <div className="space-y-1">
-                        <div className="flex justify-between text-[10px] text-gray-500">
+                        <div className="flex justify-between text-[10px] text-elio-text-dim">
                           <span>VRAM</span>
-                          <span>
+                          <span className="font-mono">
                             {mbToGb(gpu.memory_used_mb)} / {mbToGb(gpu.memory_total_mb)} GB
                           </span>
                         </div>
-                        <div className="h-1.5 bg-[#3c3c3c] rounded-full overflow-hidden">
+                        <div className="h-1 bg-elio-surface-3 overflow-hidden">
                           <div
-                            className="h-full bg-blue-500 rounded-full transition-all"
-                            style={{
-                              width: `${(gpu.memory_used_mb / gpu.memory_total_mb) * 100}%`,
-                            }}
+                            className="h-full bg-elio-primary transition-all duration-300"
+                            style={{ width: `${(gpu.memory_used_mb / gpu.memory_total_mb) * 100}%` }}
                           />
                         </div>
                         {gpu.utilization_pct !== null && (
-                          <div className="flex justify-between text-[10px] text-gray-500">
+                          <div className="flex justify-between text-[10px] text-elio-text-dim">
                             <span>Utilization</span>
-                            <span>{gpu.utilization_pct}%</span>
+                            <span className="font-mono">{gpu.utilization_pct}%</span>
                           </div>
                         )}
                       </div>
@@ -166,19 +149,18 @@ export default function ComputePanel() {
             {/* Active model */}
             {models && models.models.length > 0 && (
               <section>
-                <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+                <h3 className="text-[10px] font-semibold uppercase tracking-widest text-elio-text-dim mb-2">
                   Active Model
                 </h3>
                 <select
                   value={form.ACTIVE_MODEL ?? ''}
                   onChange={(e) => setForm((f) => ({ ...f, ACTIVE_MODEL: e.target.value }))}
-                  className="w-full bg-[#1e1e1e] border border-[#3c3c3c] rounded px-3 py-2 text-xs text-gray-200 focus:outline-none focus:border-blue-500"
+                  className="w-full bg-elio-surface-2 border border-elio-border px-3 py-2 text-[11px] text-elio-text focus:outline-none focus:border-elio-primary transition-colors duration-150"
                 >
                   <option value="">— Select model —</option>
                   {models.models.map((m) => (
                     <option key={m.id} value={m.id}>
-                      [{m.provider}] {m.name}
-                      {m.size_gb ? ` (${m.size_gb}GB)` : ''}
+                      [{m.provider}] {m.name}{m.size_gb ? ` (${m.size_gb}GB)` : ''}
                     </option>
                   ))}
                 </select>
@@ -187,49 +169,43 @@ export default function ComputePanel() {
 
             {/* API Keys */}
             <section>
-              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+              <h3 className="text-[10px] font-semibold uppercase tracking-widest text-elio-text-dim mb-2">
                 API Keys
               </h3>
               <div className="space-y-3">
                 {(
                   [
                     ['ANTHROPIC_API_KEY', 'Anthropic'],
-                    ['OPENAI_API_KEY', 'OpenAI'],
-                    ['RUNPOD_API_KEY', 'RunPod'],
+                    ['OPENAI_API_KEY',    'OpenAI'],
+                    ['RUNPOD_API_KEY',    'RunPod'],
                     ['LAMBDA_LABS_API_KEY', 'Lambda Labs'],
                   ] as [keyof SettingsPayload, string][]
                 ).map(([key, label]) => (
                   <div key={key}>
-                    <label className="block text-[10px] text-gray-500 mb-1">
+                    <label className="block text-[10px] text-elio-text-dim mb-1">
                       {label}
                       {settings?.[key as keyof SettingsMeta] === true && (
-                        <span className="ml-2 text-green-400">● set</span>
+                        <span className="ml-2 text-elio-success">● set</span>
                       )}
                     </label>
                     <input
                       type="password"
-                      placeholder={
-                        settings?.[key as keyof SettingsMeta] ? '••••••••' : 'Enter key…'
-                      }
+                      placeholder={settings?.[key as keyof SettingsMeta] ? '••••••••' : 'Enter key…'}
                       value={(form[key] as string | undefined) ?? ''}
-                      onChange={(e) =>
-                        setForm((f) => ({ ...f, [key]: e.target.value }))
-                      }
-                      className="w-full bg-[#1e1e1e] border border-[#3c3c3c] rounded px-3 py-2 text-xs text-gray-200 placeholder-gray-600 focus:outline-none focus:border-blue-500"
+                      onChange={(e) => setForm((f) => ({ ...f, [key]: e.target.value }))}
+                      className="w-full bg-elio-surface-2 border border-elio-border px-3 py-2 text-[11px] text-elio-text placeholder-elio-text-dim focus:outline-none focus:border-elio-primary transition-colors duration-150"
                     />
                   </div>
                 ))}
               </div>
             </section>
 
-            {saveError && (
-              <p className="text-xs text-red-400">{saveError}</p>
-            )}
+            {saveError && <p className="text-[11px] text-elio-error">{saveError}</p>}
 
             <button
               onClick={handleSave}
               disabled={saving}
-              className="w-full flex items-center justify-center gap-2 py-2 rounded bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors text-xs text-white font-medium"
+              className="w-full flex items-center justify-center gap-2 py-2 bg-elio-primary hover:bg-elio-primary-dim text-black font-semibold text-[11px] disabled:opacity-50 disabled:cursor-not-allowed transition-colors duration-150"
             >
               {saving && <Loader className="h-3.5 w-3.5 animate-spin" />}
               Save Settings

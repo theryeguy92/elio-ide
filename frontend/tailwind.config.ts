@@ -39,6 +39,22 @@ const config: Config = {
           DEFAULT: 'hsl(var(--card))',
           foreground: 'hsl(var(--card-foreground))',
         },
+        // Elio brand tokens
+        elio: {
+          primary:     '#F5A623',
+          'primary-dim': '#C47F0E',
+          bg:          '#0A0A0A',
+          surface:     '#141414',
+          'surface-2': '#1C1C1C',
+          'surface-3': '#222222',
+          border:      '#2A2A2A',
+          'border-bright': '#3A3A3A',
+          text:        '#F0F0F0',
+          'text-muted': '#888888',
+          'text-dim':  '#555555',
+          success:     '#4CAF50',
+          error:       '#F44336',
+        },
       },
       borderRadius: {
         lg: 'var(--radius)',

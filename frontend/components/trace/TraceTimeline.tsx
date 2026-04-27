@@ -18,19 +18,15 @@ export default function TraceTimeline() {
       const data = await traceApi.listRuns()
       setRuns(data)
     } catch {
-      // silently fail — empty state is shown
+      // silently fail
     } finally {
       setLoading(false)
       if (showSpinner) setRefreshing(false)
     }
   }, [])
 
-  // Initial load
-  useEffect(() => {
-    loadRuns()
-  }, [loadRuns])
+  useEffect(() => { loadRuns() }, [loadRuns])
 
-  // Poll every 10 s when no run is selected (run list stays fresh)
   useEffect(() => {
     if (selectedRunId) return
     const id = setInterval(() => loadRuns(), 10_000)
@@ -39,61 +35,55 @@ export default function TraceTimeline() {
 
   const handleBack = useCallback(() => {
     setSelectedRunId(null)
-    // Refresh list when returning so completed runs show updated status
     loadRuns()
   }, [loadRuns])
 
   return (
-    <aside className="w-80 bg-[#252526] border-l border-[#3c3c3c] flex flex-col shrink-0 overflow-hidden">
-      {/* ------------------------------------------------------------------ */}
-      {/* Header                                                              */}
-      {/* ------------------------------------------------------------------ */}
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-[#3c3c3c] shrink-0 min-h-[38px]">
+    <aside className="w-72 bg-elio-surface border-l border-elio-border flex flex-col shrink-0 overflow-hidden">
+      {/* Header */}
+      <div className="flex items-center gap-2 px-3 py-2 border-b border-elio-border shrink-0 h-9">
         {selectedRunId ? (
           <button
             onClick={handleBack}
-            className="flex items-center gap-1 text-xs text-gray-400 hover:text-white transition-colors"
-            aria-label="Back to run list"
+            className="flex items-center gap-1 text-[11px] text-elio-text-muted hover:text-elio-text transition-colors duration-150"
           >
             <ChevronLeft className="h-3.5 w-3.5" />
             Runs
           </button>
         ) : (
           <>
-            <Clock className="h-3.5 w-3.5 text-gray-400 shrink-0" />
-            <span className="text-xs font-semibold uppercase tracking-wider text-gray-400 flex-1">
-              Trace Timeline
+            <Clock className="h-3.5 w-3.5 text-elio-text-dim shrink-0" />
+            <span className="text-[10px] font-semibold uppercase tracking-widest text-elio-text-dim flex-1">
+              Trace
             </span>
+            {runs.length > 0 && (
+              <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-elio-surface-2 text-elio-text-muted border border-elio-border">
+                {runs.length}
+              </span>
+            )}
             <button
               onClick={() => loadRuns(true)}
               disabled={refreshing}
-              className="p-1 rounded hover:bg-[#3c3c3c] transition-colors disabled:opacity-50"
-              aria-label="Refresh runs"
+              className="p-1 rounded hover:bg-elio-surface-2 transition-colors duration-150 disabled:opacity-40"
             >
-              <RefreshCw
-                className={`h-3.5 w-3.5 text-gray-500 ${refreshing ? 'animate-spin' : ''}`}
-              />
+              <RefreshCw className={`h-3 w-3 text-elio-text-dim ${refreshing ? 'animate-spin' : ''}`} />
             </button>
           </>
         )}
       </div>
 
-      {/* ------------------------------------------------------------------ */}
-      {/* Content                                                             */}
-      {/* ------------------------------------------------------------------ */}
+      {/* Content */}
       {selectedRunId ? (
         <StepView runId={selectedRunId} onBack={handleBack} />
       ) : (
         <RunList runs={runs} loading={loading} onSelect={setSelectedRunId} />
       )}
 
-      {/* ------------------------------------------------------------------ */}
-      {/* Footer — only visible on run list                                   */}
-      {/* ------------------------------------------------------------------ */}
+      {/* Footer */}
       {!selectedRunId && (
-        <div className="border-t border-[#3c3c3c] px-3 py-2 shrink-0">
-          <p className="text-[10px] text-gray-600">
-            {runs.length} run{runs.length !== 1 ? 's' : ''} · auto-refresh every 10s
+        <div className="border-t border-elio-border px-3 py-1.5 shrink-0">
+          <p className="text-[10px] text-elio-text-dim">
+            {runs.length} run{runs.length !== 1 ? 's' : ''} · auto-refresh 10s
           </p>
         </div>
       )}

@@ -79,9 +79,9 @@ function toRFEdges(edges: StakeholderEdge[], animated: boolean): Edge[] {
     label: e.count > 1 ? `${e.label} (×${e.count})` : e.label,
     animated,
     type: 'smoothstep',
-    style: { stroke: '#4b5563', strokeWidth: 1.5 },
-    labelStyle: { fill: '#9ca3af', fontSize: 9, fontFamily: 'inherit' },
-    labelBgStyle: { fill: '#1e1e1e', fillOpacity: 0.85, rx: 3 },
+    style: { stroke: animated ? '#F5A623' : '#333333', strokeWidth: animated ? 2 : 1.5 },
+    labelStyle: { fill: '#888888', fontSize: 9, fontFamily: 'inherit' },
+    labelBgStyle: { fill: '#141414', fillOpacity: 0.9, rx: 2 },
     labelBgPadding: [4, 3] as [number, number],
   }))
 }
@@ -188,7 +188,7 @@ function StakeholderCanvas() {
 
   if (loading) {
     return (
-      <div className="h-full flex items-center justify-center gap-2 text-gray-500 text-xs">
+      <div className="h-full flex items-center justify-center gap-2 text-elio-text-dim text-[11px]">
         <Loader className="h-4 w-4 animate-spin" />
         Building architecture diagram…
       </div>
@@ -198,11 +198,11 @@ function StakeholderCanvas() {
   if (error) {
     return (
       <div className="h-full flex flex-col items-center justify-center gap-2 px-6 text-center">
-        <AlertCircle className="h-6 w-6 text-red-400" />
-        <p className="text-xs text-red-400">{error}</p>
+        <AlertCircle className="h-6 w-6 text-elio-error" />
+        <p className="text-[11px] text-elio-error">{error}</p>
         <button
           onClick={() => loadGraph(true)}
-          className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+          className="text-[11px] text-elio-primary hover:opacity-80 transition-opacity"
         >
           Retry
         </button>
@@ -213,10 +213,10 @@ function StakeholderCanvas() {
   if (graph && graph.nodes.length === 0) {
     return (
       <div className="h-full flex flex-col items-center justify-center gap-3 px-6 text-center">
-        <Network className="h-10 w-10 text-gray-600" />
+        <Network className="h-10 w-10 text-elio-text-dim opacity-30" />
         <div>
-          <p className="text-sm font-medium text-gray-400">No agent runs yet</p>
-          <p className="text-xs text-gray-600 mt-1 leading-relaxed">
+          <p className="text-[11px] font-medium text-elio-text-muted">No agent runs yet</p>
+          <p className="text-[10px] text-elio-text-dim mt-1 leading-relaxed">
             Start an agent run and this diagram will auto-populate with the system
             components and how they connect.
           </p>
@@ -228,16 +228,16 @@ function StakeholderCanvas() {
   return (
     <div className="h-full flex flex-col">
       {/* Top bar */}
-      <div className="flex items-center gap-3 px-3 py-1.5 border-b border-[#3c3c3c] shrink-0 bg-[#252526]">
+      <div className="flex items-center gap-3 px-3 py-1.5 border-b border-elio-border shrink-0 bg-elio-surface">
         <div className="flex items-center gap-1.5 flex-1 min-w-0">
           {hasLiveRun && (
             <span className="relative flex h-2 w-2 shrink-0">
-              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
-              <span className="relative inline-flex h-2 w-2 rounded-full bg-green-400" />
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-elio-primary opacity-60" />
+              <span className="relative inline-flex h-2 w-2 rounded-full bg-elio-primary" />
             </span>
           )}
           {graph && (
-            <span className="text-[10px] text-gray-500 truncate">
+            <span className="text-[10px] text-elio-text-dim truncate">
               Updated {relativeTime(graph.last_updated)} ·{' '}
               {graph.nodes.length} component{graph.nodes.length !== 1 ? 's' : ''}
             </span>
@@ -247,16 +247,14 @@ function StakeholderCanvas() {
         <button
           onClick={() => loadGraph(true)}
           disabled={refreshing}
-          className="p-1 rounded hover:bg-[#3c3c3c] transition-colors disabled:opacity-40"
-          aria-label="Refresh"
+          className="p-1 rounded hover:bg-elio-surface-2 transition-colors duration-150 disabled:opacity-40"
         >
-          <RefreshCw className={`h-3.5 w-3.5 text-gray-400 ${refreshing ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`h-3 w-3 text-elio-text-dim ${refreshing ? 'animate-spin' : ''}`} />
         </button>
 
         <button
           onClick={handleExport}
-          className="flex items-center gap-1 px-2 py-1 rounded bg-[#3c3c3c] hover:bg-[#4c4c4c] transition-colors text-[10px] text-gray-300"
-          aria-label="Export PNG"
+          className="flex items-center gap-1 px-2 py-1 rounded bg-elio-surface-2 hover:bg-elio-surface-3 border border-elio-border transition-colors duration-150 text-[10px] text-elio-text-muted"
         >
           <Download className="h-3 w-3" />
           Export
@@ -281,9 +279,9 @@ function StakeholderCanvas() {
           >
             <Background
               variant={BackgroundVariant.Dots}
-              gap={20}
+              gap={24}
               size={1}
-              color="#2d2d2d"
+              color="#222222"
             />
             <Controls
               showInteractive={false}

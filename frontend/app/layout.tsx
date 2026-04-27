@@ -7,6 +7,7 @@ const inter = Inter({ subsets: ['latin'] })
 export const metadata: Metadata = {
   title: 'Elio IDE',
   description: 'Browser-based agentic AI IDE with GPU compute',
+  icons: { icon: '/elio-logo.png' },
 }
 
 export default function RootLayout({

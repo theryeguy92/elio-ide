@@ -11,8 +11,8 @@ import { useEditor } from '@/context/EditorContext'
 type TabId = 'terminal' | 'gpu' | 'stakeholder'
 
 const tabs = [
-  { id: 'terminal' as TabId, label: 'Terminal', icon: Terminal },
-  { id: 'gpu' as TabId, label: 'GPU Launcher', icon: Cpu },
+  { id: 'terminal'    as TabId, label: 'Terminal',    icon: Terminal },
+  { id: 'gpu'         as TabId, label: 'GPU',         icon: Cpu },
   { id: 'stakeholder' as TabId, label: 'Stakeholder', icon: Users },
 ]
 
@@ -23,19 +23,16 @@ const tabs = [
 const converter = new AnsiToHtml({ escapeXML: true })
 
 const STREAM_COLOR: Record<Stream, string> = {
-  stdout:   '#e5e7eb',
-  stderr:   '#f87171',
+  stdout:   'var(--elio-text-muted)',
+  stderr:   'var(--elio-error)',
   system:   '#60a5fa',
-  exit_ok:  '#4ade80',
-  exit_err: '#f87171',
+  exit_ok:  'var(--elio-success)',
+  exit_err: 'var(--elio-error)',
 }
 
 function ansiToHtml(text: string): string {
-  try {
-    return converter.toHtml(text)
-  } catch {
-    return text.replace(/\x1B\[[0-9;]*m/g, '')
-  }
+  try { return converter.toHtml(text) }
+  catch { return text.replace(/\x1B\[[0-9;]*m/g, '') }
 }
 
 function TerminalPanel() {
@@ -47,32 +44,31 @@ function TerminalPanel() {
   }, [lines.length])
 
   return (
-    <div className="h-full bg-[#0d0d0d] flex flex-col">
-      <div className="flex items-center justify-between px-3 py-1 border-b border-[#1e1e1e] shrink-0">
-        <span className="text-[10px] text-gray-500 font-medium uppercase tracking-wider">
+    <div className="h-full bg-elio-bg flex flex-col">
+      <div className="flex items-center justify-between px-3 py-1 border-b border-elio-border shrink-0">
+        <span className="text-[10px] font-semibold uppercase tracking-widest text-elio-text-dim">
           Output
           {runState !== 'idle' && (
             <span className="ml-2 inline-flex items-center gap-1">
               <span className="relative flex h-1.5 w-1.5">
-                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-green-400 opacity-75" />
-                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-green-400" />
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-elio-primary opacity-60" />
+                <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-elio-primary" />
               </span>
-              <span className="text-green-400">running</span>
+              <span className="text-elio-primary">running</span>
             </span>
           )}
         </span>
         <button
           onClick={clearOutput}
-          className="p-1 rounded hover:bg-[#1e1e1e] transition-colors"
-          aria-label="Clear output"
+          className="p-1 rounded hover:bg-elio-surface-2 transition-colors duration-150"
         >
-          <Trash2 className="h-3 w-3 text-gray-500 hover:text-gray-300" />
+          <Trash2 className="h-3 w-3 text-elio-text-dim hover:text-elio-text-muted" />
         </button>
       </div>
 
       <div className="flex-1 overflow-y-auto p-3 font-mono text-xs leading-relaxed">
         {lines.length === 0 ? (
-          <p className="text-gray-600">
+          <p className="text-elio-text-dim">
             {runState === 'idle' ? 'Press Run to execute the current file.' : 'Starting…'}
           </p>
         ) : (
@@ -101,14 +97,12 @@ export default function BottomTabBar() {
   const { terminalRevealCount } = useRun()
   const { terminalToggleSeq } = useEditor()
 
-  // Expand + switch to terminal when a new run starts
   useEffect(() => {
     if (terminalRevealCount === 0) return
     setActiveTab('terminal')
     setCollapsed(false)
   }, [terminalRevealCount])
 
-  // Toggle collapse when View > Toggle Terminal is invoked
   useEffect(() => {
     if (terminalToggleSeq === 0) return
     setCollapsed((c) => !c)
@@ -116,26 +110,23 @@ export default function BottomTabBar() {
 
   return (
     <div
-      className={`bg-[#1e1e1e] border-t border-[#3c3c3c] flex flex-col shrink-0 transition-all duration-200 ${
-        collapsed ? 'h-9' : activeTab === 'stakeholder' ? 'h-96' : 'h-52'
+      className={`bg-elio-bg border-t border-elio-border flex flex-col shrink-0 transition-all duration-200 ${
+        collapsed ? 'h-8' : activeTab === 'stakeholder' ? 'h-96' : 'h-52'
       }`}
     >
       {/* Tab bar */}
-      <div className="h-9 flex items-center bg-[#252526] border-b border-[#3c3c3c] shrink-0">
+      <div className="h-8 flex items-center bg-elio-bg border-b border-elio-border shrink-0">
         {tabs.map(({ id, label, icon: Icon }) => (
           <button
             key={id}
-            onClick={() => {
-              if (collapsed) setCollapsed(false)
-              setActiveTab(id)
-            }}
-            className={`h-full flex items-center gap-1.5 px-4 text-xs font-medium border-t-2 transition-colors ${
+            onClick={() => { if (collapsed) setCollapsed(false); setActiveTab(id) }}
+            className={`h-full flex items-center gap-1.5 px-3 text-[10px] font-medium border-b-2 transition-all duration-150 ${
               activeTab === id && !collapsed
-                ? 'border-blue-500 text-white bg-[#1e1e1e]'
-                : 'border-transparent text-gray-400 hover:text-gray-200 hover:bg-[#2a2d2e]'
+                ? 'border-elio-primary text-elio-text'
+                : 'border-transparent text-elio-text-dim hover:text-elio-text-muted hover:bg-elio-surface-2'
             }`}
           >
-            <Icon className="h-3.5 w-3.5" />
+            <Icon className="h-3 w-3" />
             {label}
           </button>
         ))}
@@ -144,11 +135,10 @@ export default function BottomTabBar() {
 
         <button
           onClick={() => setCollapsed(!collapsed)}
-          className="px-2 py-1 mr-2 rounded hover:bg-[#3c3c3c] transition-colors"
-          aria-label={collapsed ? 'Expand panel' : 'Collapse panel'}
+          className="px-2 py-1 mr-1 rounded hover:bg-elio-surface-2 transition-colors duration-150"
         >
           <ChevronDown
-            className={`h-4 w-4 text-gray-400 transition-transform duration-200 ${
+            className={`h-3.5 w-3.5 text-elio-text-dim transition-transform duration-200 ${
               collapsed ? 'rotate-180' : ''
             }`}
           />
@@ -157,8 +147,8 @@ export default function BottomTabBar() {
 
       {!collapsed && (
         <div className="flex-1 overflow-hidden">
-          {activeTab === 'terminal' && <TerminalPanel />}
-          {activeTab === 'gpu' && <GPULauncher />}
+          {activeTab === 'terminal'    && <TerminalPanel />}
+          {activeTab === 'gpu'         && <GPULauncher />}
           {activeTab === 'stakeholder' && <StakeholderTab />}
         </div>
       )}
