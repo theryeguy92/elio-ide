@@ -1,21 +1,23 @@
 import asyncio
 import os
+import sys
 
 from fastapi import APIRouter, WebSocket
 
+from config import settings
+
 router = APIRouter(prefix="/run", tags=["run"])
 
-PYTHON = os.getenv("VENV_PYTHON", "/home/levey/elio-ide/.venv/bin/python")
-REPO_PATH = os.getenv("GIT_REPO_PATH", "/home/levey/elio-ide")
+PYTHON = os.getenv("VENV_PYTHON", sys.executable)
 
 
 def _resolve(file_path: str) -> str | None:
-    """Resolve file_path to an absolute path within REPO_PATH, or None if invalid."""
-    repo_real = os.path.realpath(REPO_PATH)
+    """Resolve file_path to an absolute path within the project, or None if invalid."""
+    repo_real = os.path.realpath(settings.get("project_path", "."))
     if os.path.isabs(file_path):
         candidate = file_path
     else:
-        candidate = os.path.join(REPO_PATH, file_path)
+        candidate = os.path.join(repo_real, file_path)
     full = os.path.realpath(candidate)
     if not full.startswith(repo_real + os.sep):
         return None

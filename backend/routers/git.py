@@ -7,13 +7,14 @@ import git
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from config import settings
 from llm import chat_completion
 
 router = APIRouter(prefix="/git", tags=["git"])
 
 
 def _repo() -> git.Repo:
-    path = os.getenv("GIT_REPO_PATH", ".")
+    path = settings.get("project_path", ".")
     try:
         return git.Repo(path, search_parent_directories=True)
     except git.InvalidGitRepositoryError as e:

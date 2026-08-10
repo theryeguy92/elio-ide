@@ -39,6 +39,8 @@ type EditorContextValue = {
   toggleTrace: () => void
   computePanelOpen: boolean
   setComputePanelOpen: (open: boolean) => void
+  settingsOpen: boolean
+  setSettingsOpen: (open: boolean) => void
   terminalToggleSeq: number
   toggleTerminal: () => void
   // Monaco bridge — MonacoEditor registers these on mount
@@ -84,6 +86,7 @@ export function EditorProvider({ children }: { children: React.ReactNode }) {
   const [sidebarVisible, setSidebarVisible] = useState(true)
   const [traceVisible, setTraceVisible] = useState(true)
   const [computePanelOpen, setComputePanelOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const [terminalToggleSeq, setTerminalToggleSeq] = useState(0)
 
   const getContentRef = useRef<(() => string) | null>(null)
@@ -178,6 +181,8 @@ export function EditorProvider({ children }: { children: React.ReactNode }) {
         toggleTrace,
         computePanelOpen,
         setComputePanelOpen,
+        settingsOpen,
+        setSettingsOpen,
         terminalToggleSeq,
         toggleTerminal,
         registerGetContent,

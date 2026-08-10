@@ -8,11 +8,15 @@ from typing import Literal
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from config import settings
+
 router = APIRouter(prefix="/vault", tags=["vault"])
 
-VAULT_PATH = Path(
-    os.getenv("VAULT_PATH", str(Path.home() / "vaults" / "RegMetAI"))
-).resolve()
+
+def vault_path() -> Path:
+    return Path(
+        settings.get("vault_path", str(Path.home() / "vaults" / "RegMetAI"))
+    ).resolve()
 
 _SKIP_DIRS = frozenset({".obsidian", ".trash", ".git"})
 
@@ -38,12 +42,13 @@ class SearchHit(BaseModel):
 
 
 def _vault_root() -> Path:
-    if not VAULT_PATH.is_dir():
+    root = vault_path()
+    if not root.is_dir():
         raise HTTPException(
             status_code=404,
-            detail=f"Vault not found at {VAULT_PATH}. Set VAULT_PATH in backend/.env",
+            detail=f"Vault not found at {root}. Set it in Settings (gear icon).",
         )
-    return VAULT_PATH
+    return root
 
 
 def _resolve(rel_path: str) -> Path:
@@ -67,7 +72,7 @@ def _build_tree(root: Path) -> list[VaultNode]:
         if entry.name.startswith(".") or entry.name in _SKIP_DIRS:
             continue
 
-        rel = entry.relative_to(VAULT_PATH).as_posix()
+        rel = entry.relative_to(vault_path()).as_posix()
 
         if entry.is_dir():
             children = _build_tree(entry)

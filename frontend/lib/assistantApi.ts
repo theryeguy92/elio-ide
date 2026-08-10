@@ -15,7 +15,7 @@ export type ChatResponse = {
   files: ProposedFile[]
 }
 
-export type AssistantMode = 'vault-setup' | 'readme'
+export type AssistantMode = 'vault-setup' | 'readme' | 'code'
 
 export type AssistantConfig = {
   provider: string
@@ -30,10 +30,11 @@ export const assistantApi = {
     mode: AssistantMode,
     message: string,
     history: ChatMessage[],
+    activeFile: string | null = null,
   ): Promise<ChatResponse> => {
     return apiFetch<ChatResponse>('/assistant/chat', {
       method: 'POST',
-      body: JSON.stringify({ mode, message, history }),
+      body: JSON.stringify({ mode, message, history, active_file: activeFile }),
     })
   },
 }

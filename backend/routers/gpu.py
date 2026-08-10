@@ -1,4 +1,3 @@
-import os
 
 import httpx
 from fastapi import APIRouter, HTTPException
@@ -8,14 +7,12 @@ router = APIRouter(prefix="/gpu", tags=["gpu"])
 
 RUNPOD_GQL = "https://api.runpod.io/graphql"
 
-_LOCAL_RESPONSE = {
-    "mode": "local",
-    "message": "No GPU provider configured. Running in local mode.",
-}
+_NO_KEY = "No GPU provider configured — add a RunPod API key in Settings."
 
 
 def _key() -> str | None:
-    return os.getenv("RUNPOD_API_KEY") or None
+    from config import settings
+    return settings.get("runpod_api_key") or None
 
 
 # ---------------------------------------------------------------------------
@@ -71,10 +68,10 @@ class SessionResponse(BaseModel):
 
 
 @router.get("/providers")
-async def list_providers():
+async def list_providers() -> list[GPUProvider]:
     api_key = _key()
     if not api_key:
-        return _LOCAL_RESPONSE
+        return []
 
     query = """
     query {
@@ -110,7 +107,7 @@ async def list_providers():
 async def launch_session(body: LaunchRequest):
     api_key = _key()
     if not api_key:
-        return _LOCAL_RESPONSE
+        raise HTTPException(status_code=400, detail=_NO_KEY)
 
     query = """
     mutation Launch($input: PodFindAndDeployOnDemandInput!) {
@@ -149,7 +146,7 @@ async def launch_session(body: LaunchRequest):
 async def get_session(session_id: str):
     api_key = _key()
     if not api_key:
-        return _LOCAL_RESPONSE
+        raise HTTPException(status_code=400, detail=_NO_KEY)
 
     query = """
     query Status($input: PodFilter!) {

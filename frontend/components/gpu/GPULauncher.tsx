@@ -1,8 +1,9 @@
 'use client'
 
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { AlertCircle, Cpu, Loader, Square, Zap } from 'lucide-react'
+import { AlertCircle, Cpu, Loader, Settings, Square, Zap } from 'lucide-react'
 import { gpuApi, type GPUProvider, type Session } from '@/lib/api'
+import { useEditor } from '@/context/EditorContext'
 
 type UIState = 'idle' | 'launching' | 'running' | 'terminating' | 'error'
 
@@ -156,6 +157,10 @@ export default function GPULauncher() {
     )
   }
 
+  if (providers.length === 0) {
+    return <NoGpuConfigured />
+  }
+
   const isActive = session !== null && uiState !== 'idle'
 
   return (
@@ -190,6 +195,31 @@ export default function GPULauncher() {
 // ---------------------------------------------------------------------------
 // Sub-components
 // ---------------------------------------------------------------------------
+
+function NoGpuConfigured() {
+  const { setSettingsOpen } = useEditor()
+  return (
+    <div className="p-3 space-y-3">
+      <div className="flex items-center gap-2">
+        <Cpu className="h-4 w-4 text-elio-primary" />
+        <span className="text-sm font-medium text-elio-text">GPU Launcher</span>
+      </div>
+      <div className="px-3 py-4 rounded bg-elio-surface-2 border border-elio-border text-center space-y-2">
+        <p className="text-xs text-elio-text">No GPU provider configured</p>
+        <p className="text-[10px] text-elio-text-dim">
+          Add a RunPod API key to launch cloud GPUs, or run local models via Ollama.
+        </p>
+        <button
+          onClick={() => setSettingsOpen(true)}
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded bg-elio-primary hover:bg-elio-primary-dim text-black text-[11px] font-semibold transition-colors duration-150"
+        >
+          <Settings className="h-3 w-3" />
+          Configure GPU
+        </button>
+      </div>
+    </div>
+  )
+}
 
 function ActiveSession({
   session,
@@ -229,7 +259,7 @@ function ActiveSession({
       <button
         onClick={onTerminate}
         disabled={terminating}
-        className="flex items-center gap-2 px-4 py-1.5 rounded bg-red-700 hover:bg-red-800 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors"
+        className="flex items-center gap-2 px-4 py-1.5 rounded bg-elio-error hover:opacity-90 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors"
       >
         {terminating ? (
           <Loader className="h-3.5 w-3.5 animate-spin" />
@@ -268,7 +298,7 @@ function ProviderSelector({
             onClick={() => onSelect(gpu.id)}
             className={`p-2 rounded border text-left transition-colors ${
               selectedId === gpu.id
-                ? 'border-blue-500 bg-blue-500/10 text-white'
+                ? 'border-elio-primary bg-elio-primary/10 text-elio-text'
                 : 'border-elio-border text-elio-text-muted hover:border-elio-border-bright hover:text-elio-text'
             }`}
           >
@@ -287,7 +317,7 @@ function ProviderSelector({
       )}
 
       {errorMsg && (
-        <div className="flex items-start gap-2 px-3 py-2 rounded bg-red-900/20 border border-red-700/40">
+        <div className="flex items-start gap-2 px-3 py-2 rounded bg-elio-error/10 border border-elio-error/40">
           <AlertCircle className="h-3.5 w-3.5 text-elio-error shrink-0 mt-0.5" />
           <p className="text-[10px] text-elio-error break-all">{errorMsg}</p>
         </div>
@@ -296,7 +326,7 @@ function ProviderSelector({
       <button
         onClick={onLaunch}
         disabled={!selectedId || launching}
-        className="flex items-center gap-2 px-4 py-1.5 rounded bg-purple-600 hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed text-white text-sm font-medium transition-colors"
+        className="flex items-center gap-2 px-4 py-1.5 rounded bg-elio-primary hover:bg-elio-primary-dim disabled:opacity-50 disabled:cursor-not-allowed text-black text-sm font-semibold transition-colors"
       >
         {launching ? (
           <Loader className="h-3.5 w-3.5 animate-spin" />

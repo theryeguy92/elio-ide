@@ -9,10 +9,15 @@ import httpx
 from fastapi import APIRouter
 from pydantic import BaseModel
 
+from config import settings
+
 router = APIRouter(prefix="/compute", tags=["compute"])
 
 OLLAMA_BASE = os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
-_ENV_PATH = Path(os.getenv("GIT_REPO_PATH", "/home/levey/elio-ide")) / "backend" / ".env"
+
+
+def _env_path() -> Path:
+    return Path(settings.get("project_path", ".")) / "backend" / ".env"
 
 
 # ---------------------------------------------------------------------------
@@ -69,10 +74,10 @@ class SettingsMeta(BaseModel):
 # ---------------------------------------------------------------------------
 
 def _read_env() -> dict[str, str]:
-    if not _ENV_PATH.exists():
+    if not _env_path().exists():
         return {}
     result: dict[str, str] = {}
-    for raw in _ENV_PATH.read_text().splitlines():
+    for raw in _env_path().read_text().splitlines():
         line = raw.strip()
         if not line or line.startswith("#") or "=" not in line:
             continue
@@ -85,7 +90,7 @@ def _write_env(updates: dict[str, str]) -> None:
     existing = _read_env()
     existing.update(updates)
     lines = [f'{k}="{v}"' for k, v in existing.items()]
-    _ENV_PATH.write_text("\n".join(lines) + "\n")
+    _env_path().write_text("\n".join(lines) + "\n")
 
 
 def _get(key: str) -> str:

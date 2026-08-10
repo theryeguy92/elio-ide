@@ -42,7 +42,7 @@ const NODE_H = 72
 const H_GAP = 48
 const V_GAP = 88
 
-function computeLayout(nodes: StakeholderNode[]): Node<StakeholderNode>[] {
+function computeLayout(nodes: StakeholderNode[], documented: boolean): Node<StakeholderNode>[] {
   const agents  = nodes.filter((n) => n.type === 'agent')
   const tools   = nodes.filter((n) => n.type === 'tool')
   const memories = nodes.filter((n) => n.type === 'memory')
@@ -60,7 +60,7 @@ function computeLayout(nodes: StakeholderNode[]): Node<StakeholderNode>[] {
         x: (maxPx - rowPx(row)) / 2 + i * (NODE_W + H_GAP),
         y: yPx,
       },
-      data: node,
+      data: { ...node, documented },
       style: { width: NODE_W },
     }))
 
@@ -110,7 +110,7 @@ function StakeholderCanvas() {
   const [selectedNode, setSelectedNode] = useState<StakeholderNode | null>(null)
 
   // Derived React Flow state
-  const rfNodes = graph ? computeLayout(graph.nodes) : []
+  const rfNodes = graph ? computeLayout(graph.nodes, graph.project !== null) : []
   const rfEdges = graph ? toRFEdges(graph.edges, hasLiveRun) : []
 
   const loadGraph = useCallback(async (showSpinner = false) => {
@@ -236,10 +236,22 @@ function StakeholderCanvas() {
               <span className="relative inline-flex h-2 w-2 rounded-full bg-elio-primary" />
             </span>
           )}
+          {graph?.project && (
+            <span className="text-[10px] font-semibold text-elio-text truncate" title={graph.project_description ?? undefined}>
+              {graph.project}
+            </span>
+          )}
           {graph && (
             <span className="text-[10px] text-elio-text-dim truncate">
               Updated {relativeTime(graph.last_updated)} ·{' '}
               {graph.nodes.length} component{graph.nodes.length !== 1 ? 's' : ''}
+            </span>
+          )}
+          {graph?.project && (
+            <span className="hidden md:flex items-center gap-2 text-[9px] text-elio-text-dim shrink-0">
+              <span title="Declared in elio.agents.yaml and observed in traces">● documented</span>
+              <span title="Declared but not yet observed in a run">◌ untested</span>
+              <span className="text-elio-warning" title="Observed but missing from elio.agents.yaml">⚠ undocumented</span>
             </span>
           )}
         </div>

@@ -14,8 +14,8 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from llm import chat_completion, current_config
-from routers.fs import REPO_PATH, _build_tree as _project_tree
-from routers.vault import VAULT_PATH, _build_tree as _vault_tree
+from routers.fs import repo_path, _build_tree as _project_tree
+from routers.vault import vault_path, _build_tree as _vault_tree
 
 router = APIRouter(prefix="/assistant", tags=["assistant"])
 
@@ -31,9 +31,10 @@ class ChatMessage(BaseModel):
 
 
 class ChatRequest(BaseModel):
-    mode: Literal["vault-setup", "readme"]
+    mode: Literal["vault-setup", "readme", "code"]
     message: str
     history: list[ChatMessage] = []
+    active_file: str | None = None  # project-relative path of the open editor tab
 
 
 class ProposedFile(BaseModel):
@@ -88,24 +89,40 @@ def _flatten(nodes: list, limit: int = 200) -> list[str]:
     return paths
 
 
+def _active_file_context(active_file: str | None) -> str:
+    if not active_file:
+        return ""
+    from routers.fs import _resolve
+
+    try:
+        full = _resolve(active_file)
+        if not full.is_file():
+            return ""
+        content = full.read_text(encoding="utf-8", errors="replace")[:8000]
+    except Exception:
+        return ""
+    return f"## Active file: {active_file}\n\n```\n{content}\n```\n\n"
+
+
 def _project_context() -> str:
     parts: list[str] = []
-    readme = REPO_PATH / "README.md"
+    readme = repo_path() / "README.md"
     if readme.is_file():
         parts.append(f"## Project README.md\n\n{readme.read_text(encoding='utf-8', errors='replace')[:4000]}")
     else:
         parts.append("## Project README.md\n\n(none exists)")
     try:
-        parts.append("## Project file tree\n\n" + "\n".join(_flatten(_project_tree(REPO_PATH))))
+        parts.append("## Project file tree\n\n" + "\n".join(_flatten(_project_tree(repo_path()))))
     except Exception:
         pass
     return "\n\n".join(parts)
 
 
 def _vault_context() -> str:
-    if not VAULT_PATH.is_dir():
+    root = vault_path()
+    if not root.is_dir():
         return "## Existing vault notes\n\n(vault not found — it will be created from scratch)"
-    return "## Existing vault notes\n\n" + ("\n".join(_flatten(_vault_tree(VAULT_PATH))) or "(empty)")
+    return "## Existing vault notes\n\n" + ("\n".join(_flatten(_vault_tree(root))) or "(empty)")
 
 
 _SYSTEM = {
@@ -127,6 +144,16 @@ _SYSTEM = {
         "README, then briefly summarize your choices outside the fence. If you need more "
         "information first, ask short clarifying questions and do not output the json fence yet."
     ),
+    "code": (
+        "You are a senior pair-programmer inside Elio IDE. Help the user understand, "
+        "debug, and edit the code in their project. Answer questions directly and "
+        "concisely. When the user asks for a change and you are ready to apply it, output "
+        "exactly one ```json fence containing "
+        '{"files": [{"path": "project/relative/path.py", "content": "<full new file content>}]} '
+        "with project-relative paths and COMPLETE file contents (never partial diffs), then "
+        "briefly explain the change outside the fence. Prefer small, focused edits. Do not "
+        "refactor beyond what was asked."
+    ),
 }
 
 
@@ -143,7 +170,10 @@ async def get_config() -> dict[str, str]:
 
 @router.post("/chat", response_model=ChatResponse)
 async def chat(body: ChatRequest) -> ChatResponse:
-    context = _project_context() + "\n\n" + _vault_context()
+    if body.mode == "code":
+        context = _active_file_context(body.active_file) + _project_context()
+    else:
+        context = _project_context() + "\n\n" + _vault_context()
 
     messages = [
         {"role": m.role, "content": m.content} for m in body.history[-10:]

@@ -2,6 +2,7 @@
 .env
 .env.local
 .env.*.local
+backend/config.json
 
 # Claude Code
 CLAUDE.md
@@ -21,3 +22,7 @@ node_modules/
 .DS_Store
 Thumbs.db
 test-agent/venv/
+
+# Local data & build artifacts
+*.db
+*.tsbuildinfo

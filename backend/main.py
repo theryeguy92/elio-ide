@@ -16,6 +16,7 @@ from routers.fs import router as fs_router
 from routers.git import router as git_router
 from routers.gpu import router as gpu_router
 from routers.run import router as run_router
+from routers.settings import router as settings_router
 from routers.stakeholder import router as stakeholder_router
 from routers.trace import router as trace_router
 from routers.vault import router as vault_router
@@ -59,6 +60,7 @@ app.include_router(compute_router)
 app.include_router(fs_router)
 app.include_router(gpu_router)
 app.include_router(run_router)
+app.include_router(settings_router)
 app.include_router(trace_router)
 app.include_router(vault_router)
 app.include_router(stakeholder_router)

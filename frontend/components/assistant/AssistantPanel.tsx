@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { BookOpen, FileText, Loader, Send, Sparkles } from 'lucide-react'
+import { BookOpen, Code2, FileText, Loader, Send, Sparkles } from 'lucide-react'
 import {
   assistantApi,
   type AssistantConfig,
@@ -11,6 +11,8 @@ import {
 } from '@/lib/assistantApi'
 import { fsApi } from '@/lib/fsApi'
 import { vaultApi } from '@/lib/vaultApi'
+import { useEditor } from '@/context/EditorContext'
+import Markdown from '@/components/assistant/Markdown'
 
 type Message = ChatMessage & { files?: ProposedFile[] }
 
@@ -27,6 +29,12 @@ const MODES: { id: AssistantMode; label: string; icon: typeof BookOpen; hint: st
     icon: FileText,
     hint: 'Draft a professional README for this project',
   },
+  {
+    id: 'code',
+    label: 'Code',
+    icon: Code2,
+    hint: 'Ask about or edit the code in your active tab',
+  },
 ]
 
 export default function AssistantPanel() {
@@ -37,6 +45,10 @@ export default function AssistantPanel() {
   const [applied, setApplied] = useState<Set<string>>(new Set())
   const [config, setConfig] = useState<AssistantConfig | null>(null)
   const endRef = useRef<HTMLDivElement>(null)
+  const { activeTab } = useEditor()
+  // Only project files count as code context — vault notes are vault: prefixed
+  const activeFile =
+    activeTab && !activeTab.startsWith('vault:') ? activeTab : null
 
   useEffect(() => {
     assistantApi.config().then(setConfig).catch(() => setConfig(null))
@@ -56,7 +68,7 @@ export default function AssistantPanel() {
     setMessages((prev) => [...prev, { role: 'user', content: text }])
 
     try {
-      const resp = await assistantApi.chat(mode, text, history)
+      const resp = await assistantApi.chat(mode, text, history, mode === 'code' ? activeFile : null)
       setMessages((prev) => [
         ...prev,
         { role: 'assistant', content: resp.reply, files: resp.files.length ? resp.files : undefined },
@@ -81,6 +93,7 @@ export default function AssistantPanel() {
       setApplied((prev) => new Set(prev).add(f.path))
     }
   }
+  // ponytail: applied project files don't live-refresh open Monaco tabs — reopen the file
 
   return (
     <div className="h-full bg-elio-bg flex flex-col">
@@ -118,9 +131,13 @@ export default function AssistantPanel() {
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
         {messages.length === 0 && (
           <p className="text-[11px] text-elio-text-dim">
-            Ask me to {mode === 'vault-setup'
-              ? 'design a zettelkasten vault structure for this project'
-              : 'write a README for this project'}.
+            {mode === 'vault-setup' && 'Ask me to design a zettelkasten vault structure for this project.'}
+            {mode === 'readme' && 'Ask me to write a README for this project.'}
+            {mode === 'code' && (
+              activeFile
+                ? `Ask me about ${activeFile} — I can propose edits you apply with one click.`
+                : 'Open a project file, then ask me to explain or change it.'
+            )}
           </p>
         )}
         {messages.map((m, i) => (
@@ -132,7 +149,7 @@ export default function AssistantPanel() {
                   : 'bg-elio-surface-2 text-elio-text-muted'
               }`}
             >
-              {m.content}
+              {m.role === 'assistant' ? <Markdown text={m.content} /> : m.content}
               {m.files && (
                 <div className="mt-2 pt-2 border-t border-elio-border">
                   <div className="text-[10px] text-elio-text-dim mb-1">

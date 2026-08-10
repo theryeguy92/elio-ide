@@ -1,11 +1,14 @@
 import { Handle, Position, type NodeProps } from 'reactflow'
 import type { StakeholderNode } from '@/lib/stakeholderApi'
 import HealthDot from './HealthDot'
+import OriginBadge from './OriginBadge'
 
 export default function AgentNode({ data, selected }: NodeProps<StakeholderNode>) {
   return (
     <div
       className={`w-40 border transition-colors duration-150 ${
+        data.origin === 'declared' ? 'opacity-60 border-dashed ' : ''
+      }${
         selected
           ? 'border-[#F5A623] bg-[#1A1500]'
           : 'border-[#F5A623]/30 bg-[#1A1500] hover:border-[#F5A623]/60'
@@ -19,7 +22,8 @@ export default function AgentNode({ data, selected }: NodeProps<StakeholderNode>
         <span className="text-[9px] font-semibold uppercase tracking-widest text-[#F5A623]/70">
           Agent
         </span>
-        <HealthDot status={data.health} />
+        <OriginBadge node={data} />
+        {data.origin !== 'declared' && <HealthDot status={data.health} />}
       </div>
 
       <div className="px-2.5 py-2">

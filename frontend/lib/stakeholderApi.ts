@@ -6,6 +6,8 @@ import { API_BASE, apiFetch } from '@/lib/apiFetch'
 
 export type NodeType = 'agent' | 'tool' | 'memory'
 export type HealthStatus = 'green' | 'yellow' | 'red'
+/** both = declared+observed · declared = manifest only · observed = undocumented */
+export type NodeOrigin = 'both' | 'declared' | 'observed'
 
 export type StakeholderNode = {
   id: string
@@ -13,11 +15,15 @@ export type StakeholderNode = {
   label: string
   call_count: number
   health: HealthStatus
+  origin: NodeOrigin
+  /** injected client-side: true when the project has an elio.agents.yaml */
+  documented?: boolean
   metadata: {
     success_rate: number
     error_count: number
     read_count: number
     write_count: number
+    description?: string
   }
 }
 
@@ -33,6 +39,8 @@ export type StakeholderGraph = {
   nodes: StakeholderNode[]
   edges: StakeholderEdge[]
   last_updated: string
+  project: string | null
+  project_description: string | null
 }
 
 export type RecentStep = {

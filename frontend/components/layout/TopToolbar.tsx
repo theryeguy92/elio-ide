@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import {
   Check,
   ChevronDown,
+  Cog,
   GitBranch,
   Loader,
   Play,
@@ -78,6 +79,7 @@ export default function TopToolbar() {
     toggleTrace,
     toggleTerminal,
     setComputePanelOpen,
+    setSettingsOpen,
   } = useEditor()
 
   const [branch, setBranch] = useState<string>('main')
@@ -215,6 +217,15 @@ export default function TopToolbar() {
         >
           <Settings className="h-3.5 w-3.5" />
           <span>Compute</span>
+        </button>
+
+        {/* App settings */}
+        <button
+          onClick={() => setSettingsOpen(true)}
+          className="p-1.5 rounded bg-elio-surface border border-elio-border hover:border-elio-border-bright text-elio-text-muted hover:text-elio-text transition-all duration-150"
+          aria-label="Settings"
+        >
+          <Cog className="h-3.5 w-3.5" />
         </button>
 
         {/* Run / Stop */}

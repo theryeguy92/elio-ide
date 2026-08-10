@@ -1,16 +1,19 @@
 """File system router — read/write files within the project."""
 from __future__ import annotations
 
-import os
 from pathlib import Path
 from typing import Literal
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from config import settings
+
 router = APIRouter(prefix="/fs", tags=["fs"])
 
-REPO_PATH = Path(os.getenv("GIT_REPO_PATH", ".")).resolve()
+
+def repo_path() -> Path:
+    return Path(settings.get("project_path", ".")).resolve()
 
 _SKIP = frozenset({
     ".git", "__pycache__", ".next", "node_modules",
@@ -35,8 +38,9 @@ class FileContent(BaseModel):
 
 def _resolve(rel_path: str) -> Path:
     """Resolve a repo-relative path, rejecting traversal attempts."""
-    full = (REPO_PATH / rel_path).resolve()
-    if not str(full).startswith(str(REPO_PATH)):
+    root = repo_path()
+    full = (root / rel_path).resolve()
+    if not str(full).startswith(str(root)):
         raise HTTPException(status_code=403, detail="Access denied")
     return full
 
@@ -54,7 +58,7 @@ def _build_tree(root: Path) -> list[FileNode]:
         if entry.name.startswith(".") and entry.name not in (".env.example",):
             continue
 
-        rel = entry.relative_to(REPO_PATH).as_posix()
+        rel = entry.relative_to(repo_path()).as_posix()
 
         if entry.is_dir():
             nodes.append(FileNode(
@@ -71,7 +75,7 @@ def _build_tree(root: Path) -> list[FileNode]:
 
 @router.get("/tree", response_model=list[FileNode])
 async def get_tree(path: str = "") -> list[FileNode]:
-    root = _resolve(path) if path else REPO_PATH
+    root = _resolve(path) if path else repo_path()
     if not root.is_dir():
         raise HTTPException(status_code=404, detail="Directory not found")
     return _build_tree(root)

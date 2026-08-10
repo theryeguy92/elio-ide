@@ -1,0 +1,56 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# elio.agents.yaml — declared agent architecture
+#
+# This file tells Elio IDE what your agent system is SUPPOSED to look like.
+# The Stakeholder tab merges this declaration with observed trace data:
+#
+#   ● documented    declared here AND seen in traces   (normal node)
+#   ◌ declared      declared here but never observed   (dimmed — coverage gap)
+#   ⚠ undocumented  seen in traces but NOT declared    (amber — drift from docs)
+#
+# Match rules: `id` is slugified (lowercase, non-alphanumeric → _) and matched
+# against trace data the same way — so `id: research-agent` matches a run
+# named "Research Agent". Write descriptions for a non-technical reader:
+# they are shown verbatim to stakeholders.
+# ─────────────────────────────────────────────────────────────────────────────
+
+project: Elio IDE
+description: >
+  An IDE for building AI agents, with full execution tracing, an Obsidian
+  knowledge-base panel, and this stakeholder architecture view.
+
+agents:
+  - id: calculator-agent
+    label: Calculator Agent
+    description: >
+      A demonstration agent that solves arithmetic problems by reasoning
+      about which math operation to apply.
+    tools: [add, multiply]
+
+  - id: research-agent
+    label: Research Agent
+    description: >
+      A demonstration agent that answers questions by looking up reference
+      material and summarizing what it finds.
+    tools: [search]
+    memory: [notes-store]
+
+tools:
+  - id: add
+    label: Add
+    description: Adds two numbers together.
+
+  - id: multiply
+    label: Multiply
+    description: Multiplies two numbers together.
+
+  - id: search
+    label: Search
+    description: Finds reference documents relevant to the user's question.
+
+memory:
+  - id: notes-store
+    label: Notes Store
+    description: >
+      A running collection of facts the research agent has gathered, kept
+      so later answers can build on earlier findings.

@@ -1,41 +1,26 @@
 """
-Stakeholder router — builds a living architecture graph from trace data.
-Node descriptions use Claude when ANTHROPIC_API_KEY is set; otherwise
-a rule-based fallback generates descriptions from the trace data.
+Stakeholder router — builds a living architecture graph from trace data,
+merged with the declared architecture from elio.agents.yaml when present.
+Node descriptions come from the manifest first, then the configured LLM,
+then a rule-based fallback.
 """
 from __future__ import annotations
 
 import json
-import os
 import re
 from collections import defaultdict
 from datetime import datetime, timezone
 from typing import Any, Literal
 
-import anthropic
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from llm import chat_completion
+from manifest import load_manifest, manifest_description
 from storage.base import StorageBackend
 from storage.deps import get_storage
 
 router = APIRouter(prefix="/stakeholder", tags=["stakeholder"])
-
-# ---------------------------------------------------------------------------
-# Anthropic — lazy singleton, returns None when key is absent
-# ---------------------------------------------------------------------------
-
-_anthropic_client: anthropic.AsyncAnthropic | None = None
-
-
-def _ai() -> anthropic.AsyncAnthropic | None:
-    global _anthropic_client
-    key = os.getenv("ANTHROPIC_API_KEY", "")
-    if not key:
-        return None
-    if _anthropic_client is None:
-        _anthropic_client = anthropic.AsyncAnthropic(api_key=key)
-    return _anthropic_client
 
 
 # ---------------------------------------------------------------------------
@@ -44,6 +29,7 @@ def _ai() -> anthropic.AsyncAnthropic | None:
 
 NodeType = Literal["agent", "tool", "memory"]
 HealthStatus = Literal["green", "yellow", "red"]
+NodeOrigin = Literal["both", "declared", "observed"]
 
 
 class GraphNode(BaseModel):
@@ -52,6 +38,7 @@ class GraphNode(BaseModel):
     label: str
     call_count: int
     health: HealthStatus
+    origin: NodeOrigin = "observed"
     metadata: dict[str, Any]
 
 
@@ -67,6 +54,8 @@ class GraphResponse(BaseModel):
     nodes: list[GraphNode]
     edges: list[GraphEdge]
     last_updated: str
+    project: str | None = None
+    project_description: str | None = None
 
 
 class DescribeRequest(BaseModel):
@@ -237,6 +226,78 @@ def _build_graph(
 
 
 # ---------------------------------------------------------------------------
+# Manifest merge — declared architecture ∪ observed trace data
+# ---------------------------------------------------------------------------
+
+
+def _merge_manifest(
+    nodes: list[GraphNode], edges: list[GraphEdge], manifest: dict
+) -> tuple[list[GraphNode], list[GraphEdge]]:
+    declared: dict[str, dict] = {}
+    for section, ntype in (("agents", "agent"), ("tools", "tool"), ("memory", "memory")):
+        entries = manifest.get(section) or []
+        if not isinstance(entries, list):
+            continue
+        for entry in entries:
+            if not isinstance(entry, dict):
+                continue
+            slug = _slugify(str(entry.get("id") or entry.get("label") or ""))
+            if slug:
+                declared[f"{ntype}_{slug}"] = {"type": ntype, **entry}
+
+    merged: list[GraphNode] = []
+    for n in nodes:
+        d = declared.pop(n.id, None)
+        if d is None:
+            merged.append(n)  # stays origin="observed" — undocumented
+        else:
+            merged.append(n.model_copy(update={
+                "label": str(d.get("label") or n.label),
+                "origin": "both",
+                "metadata": {**n.metadata, "description": str(d.get("description", ""))},
+            }))
+
+    for nid, d in declared.items():
+        merged.append(GraphNode(
+            id=nid,
+            type=d["type"],
+            label=str(d.get("label") or nid),
+            call_count=0,
+            health="green",
+            origin="declared",
+            metadata={
+                "description": str(d.get("description", "")),
+                "success_rate": 1.0, "error_count": 0,
+                "read_count": 0, "write_count": 0,
+            },
+        ))
+
+    # Declared edges that were never observed
+    node_ids = {n.id for n in merged}
+    have = {e.id for e in edges}
+    agents = manifest.get("agents") or []
+    if isinstance(agents, list):
+        for entry in agents:
+            if not isinstance(entry, dict):
+                continue
+            aid = f"agent_{_slugify(str(entry.get('id') or entry.get('label') or ''))}"
+            for tid_raw in entry.get("tools") or []:
+                tid = f"tool_{_slugify(str(tid_raw))}"
+                eid = f"{aid}__{tid}"
+                if eid not in have and aid in node_ids and tid in node_ids:
+                    edges.append(GraphEdge(id=eid, source=aid, target=tid, label="calls", count=0))
+                    have.add(eid)
+            for mid_raw in entry.get("memory") or []:
+                mid = f"memory_{_slugify(str(mid_raw))}"
+                eid = f"{aid}__{mid}__declared"
+                if eid not in have and aid in node_ids and mid in node_ids:
+                    edges.append(GraphEdge(id=eid, source=aid, target=mid, label="uses", count=0))
+                    have.add(eid)
+
+    return merged, edges
+
+
+# ---------------------------------------------------------------------------
 # Description generation — Claude if available, rule-based otherwise
 # ---------------------------------------------------------------------------
 
@@ -275,38 +336,36 @@ def _rule_based(
 async def _generate_description(
     node_type: str, label: str, steps: list[dict], call_count: int, error_count: int
 ) -> str:
-    ai = _ai()
-    if ai:
-        step_lines = []
-        for s in steps[:8]:
-            lat = f" ({s['latency_ms']}ms)" if s.get("latency_ms") else ""
-            step_lines.append(
-                f"  [{s['type']}] {s['status']}{lat}: "
-                f"in={_summarize(s.get('input'), 80)} → out={_summarize(s.get('output'), 80)}"
-            )
-        trace_context = "\n".join(step_lines) or "  No recorded interactions yet."
-        type_labels = {"agent": "AI agent", "tool": "tool or capability", "memory": "memory store"}
-        prompt = (
-            f"You are explaining an AI system to a non-technical business stakeholder.\n\n"
-            f"Component: {type_labels[node_type]} named \"{label}\"\n\n"
-            f"Recent activity from the system logs:\n{trace_context}\n\n"
-            f"Write exactly 2 sentences in plain English:\n"
-            f"1. What this {type_labels[node_type]} does (its purpose).\n"
-            f"2. The value it provides to the system.\n\n"
-            f"Rules: no technical jargon, no mention of APIs/JSON/tokens/code, "
-            f"write as if explaining to a business executive."
+    step_lines = []
+    for s in steps[:8]:
+        lat = f" ({s['latency_ms']}ms)" if s.get("latency_ms") else ""
+        step_lines.append(
+            f"  [{s['type']}] {s['status']}{lat}: "
+            f"in={_summarize(s.get('input'), 80)} → out={_summarize(s.get('output'), 80)}"
         )
-        try:
-            msg = await ai.messages.create(
-                model="claude-sonnet-4-6",
-                max_tokens=200,
-                messages=[{"role": "user", "content": prompt}],
-            )
-            return msg.content[0].text.strip()
-        except Exception:
-            pass
-
-    return _rule_based(node_type, label, steps, call_count, error_count)
+    trace_context = "\n".join(step_lines) or "  No recorded interactions yet."
+    type_labels = {"agent": "AI agent", "tool": "tool or capability", "memory": "memory store"}
+    prompt = (
+        f"You are explaining an AI system to a non-technical business stakeholder.\n\n"
+        f"Component: {type_labels[node_type]} named \"{label}\"\n\n"
+        f"Recent activity from the system logs:\n{trace_context}\n\n"
+        f"Write exactly 2 sentences in plain English:\n"
+        f"1. What this {type_labels[node_type]} does (its purpose).\n"
+        f"2. The value it provides to the system.\n\n"
+        f"Rules: no technical jargon, no mention of APIs/JSON/tokens/code, "
+        f"write as if explaining to a business executive."
+    )
+    try:
+        # generous budget — reasoning models (kimi-k3 et al.) spend tokens on
+        # thinking before emitting content, and return "" when starved
+        text = (await chat_completion(
+            [{"role": "user", "content": prompt}], max_tokens=1500,
+        )).strip()
+        if not text:
+            raise ValueError("empty LLM response")
+        return text
+    except Exception:
+        return _rule_based(node_type, label, steps, call_count, error_count)
 
 
 # ---------------------------------------------------------------------------
@@ -318,16 +377,28 @@ async def _generate_description(
 async def get_graph(
     storage: StorageBackend = Depends(get_storage),
 ) -> GraphResponse:
+    manifest = load_manifest()
     runs = await storage.list_runs(limit=50)
-    if not runs:
-        return GraphResponse(
-            nodes=[], edges=[], last_updated=datetime.now(timezone.utc).isoformat()
-        )
-    run_ids = [r["id"] for r in runs]
-    steps = await storage.list_all_steps(run_ids)
-    nodes, edges = _build_graph(runs, steps)
-    last_ts = runs[0].get("created_at", datetime.now(timezone.utc).isoformat())
-    return GraphResponse(nodes=nodes, edges=edges, last_updated=str(last_ts))
+    if runs:
+        steps = await storage.list_all_steps([r["id"] for r in runs])
+        nodes, edges = _build_graph(runs, steps)
+        last_ts = str(runs[0].get("created_at", datetime.now(timezone.utc).isoformat()))
+    else:
+        nodes, edges = [], []
+        last_ts = datetime.now(timezone.utc).isoformat()
+
+    if manifest:
+        nodes, edges = _merge_manifest(nodes, edges, manifest)
+
+    return GraphResponse(
+        nodes=nodes,
+        edges=edges,
+        last_updated=last_ts,
+        project=str(manifest["project"]) if manifest and manifest.get("project") else None,
+        project_description=(
+            str(manifest["description"]) if manifest and manifest.get("description") else None
+        ),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -378,9 +449,15 @@ async def describe_node(
     call_count = len(recent)
     error_count = sum(1 for s in recent if s.get("status") == "failed")
 
-    description = await _generate_description(
-        node_type, node_label, recent, call_count, error_count
-    )
+    # Declared description wins; then LLM; then rule-based
+    manifest = load_manifest()
+    declared_desc = manifest_description(manifest, nid) if manifest else None
+    if declared_desc:
+        description = declared_desc
+    else:
+        description = await _generate_description(
+            node_type, node_label, recent, call_count, error_count
+        )
 
     return DescribeResponse(
         node_id=nid,
