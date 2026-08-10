@@ -5,8 +5,9 @@ import Editor, { type OnMount } from '@monaco-editor/react'
 import type * as Monaco from 'monaco-editor'
 import { X, FileCode } from 'lucide-react'
 import { useCodeJump } from '@/context/CodeJumpContext'
-import { useEditor } from '@/context/EditorContext'
+import { useEditor, VAULT_PREFIX } from '@/context/EditorContext'
 import { vaultApi } from '@/lib/vaultApi'
+import { fsApi } from '@/lib/fsApi'
 import { fileColor } from '@/lib/fileColor'
 
 // Comment conventions that reference vault notes: [[note name]] or note: note-name
@@ -32,6 +33,8 @@ export default function MonacoEditor() {
     openNote,
     registerGetContent,
     registerSwitchModel,
+    registerSaveAll,
+    registerRunCommand,
   } = useEditor()
 
   // Ref so the one-time-registered Monaco command always calls the latest openNote
@@ -39,6 +42,26 @@ export default function MonacoEditor() {
   openNoteRef.current = openNote
 
   useEffect(() => {
+    registerRunCommand((cmd) => {
+      const editor = editorRef.current
+      if (!editor) return
+      editor.trigger('menu', cmd === 'find' ? 'actions.find' : cmd, null)
+      editor.focus()
+    })
+    registerSaveAll(async () => {
+      for (const tab of tabs) {
+        if (!tab.isDirty) continue
+        const model = modelsRef.current.get(tab.path)
+        if (!model) continue
+        const content = model.getValue()
+        if (tab.path.startsWith(VAULT_PREFIX)) {
+          await vaultApi.writeNote(tab.path.slice(VAULT_PREFIX.length), content)
+        } else {
+          await fsApi.writeFile(tab.path, content)
+        }
+        markDirty(tab.path, false)
+      }
+    })
     registerGetContent(() => editorRef.current?.getValue() ?? '')
     registerSwitchModel((path, content, language) => {
       const editor = editorRef.current
@@ -57,9 +80,11 @@ export default function MonacoEditor() {
     return () => {
       registerGetContent(null)
       registerSwitchModel(null)
+      registerSaveAll(null)
+      registerRunCommand(null)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [tabs])
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {

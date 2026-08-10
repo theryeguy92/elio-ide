@@ -1,12 +1,13 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { ChevronDown, Cpu, Sparkles, Terminal, Trash2, Users } from 'lucide-react'
+import { Bot, ChevronDown, Cpu, Play, Sparkles, Terminal, Trash2, Users } from 'lucide-react'
 import AnsiToHtml from 'ansi-to-html'
 import GPULauncher from '@/components/gpu/GPULauncher'
 import StakeholderTab from '@/components/stakeholder/StakeholderTab'
 import AssistantPanel from '@/components/assistant/AssistantPanel'
 import { useRun, type Stream } from '@/context/RunContext'
+import { agentsApi, type AgentCli } from '@/lib/agentsApi'
 import { useEditor } from '@/context/EditorContext'
 
 type TabId = 'terminal' | 'gpu' | 'stakeholder' | 'assistant'
@@ -37,6 +38,61 @@ function ansiToHtml(text: string): string {
   catch { return text.replace(/\x1B\[[0-9;]*m/g, '') }
 }
 
+function AgentBar() {
+  const { runState, startAgentRun } = useRun()
+  const [agents, setAgents] = useState<AgentCli[]>([])
+  const [agentId, setAgentId] = useState('')
+  const [prompt, setPrompt] = useState('')
+
+  useEffect(() => {
+    agentsApi.list().then((list) => {
+      setAgents(list)
+      const first = list.find((a) => a.available)
+      if (first) setAgentId(first.id)
+    }).catch(() => setAgents([]))
+  }, [])
+
+  if (agents.length === 0) return null
+
+  const launch = () => {
+    if (!agentId || !prompt.trim() || runState !== 'idle') return
+    startAgentRun(agentId, prompt.trim())
+    setPrompt('')
+  }
+
+  return (
+    <div className="flex items-center gap-1.5 px-3 py-1.5 border-b border-elio-border shrink-0">
+      <Bot className="h-3 w-3 text-elio-primary shrink-0" />
+      <select
+        value={agentId}
+        onChange={(e) => setAgentId(e.target.value)}
+        className="bg-elio-surface-2 border border-elio-border rounded px-1.5 py-1 text-[10px] text-elio-text outline-none"
+      >
+        {agents.map((a) => (
+          <option key={a.id} value={a.id} disabled={!a.available}>
+            {a.name}{a.available ? '' : ' (not installed)'}
+          </option>
+        ))}
+      </select>
+      <input
+        value={prompt}
+        onChange={(e) => setPrompt(e.target.value)}
+        onKeyDown={(e) => e.key === 'Enter' && launch()}
+        placeholder="Give the agent a task in this project…"
+        className="flex-1 bg-elio-surface-2 border border-elio-border rounded px-2 py-1 text-[10px] text-elio-text placeholder:text-elio-text-dim outline-none focus:border-elio-primary transition-colors duration-150"
+      />
+      <button
+        onClick={launch}
+        disabled={!agentId || !prompt.trim() || runState !== 'idle'}
+        className="flex items-center gap-1 px-2 py-1 rounded bg-elio-primary hover:bg-elio-primary-dim text-black text-[10px] font-semibold disabled:opacity-40 transition-colors duration-150"
+      >
+        <Play className="h-2.5 w-2.5 fill-black" />
+        Run
+      </button>
+    </div>
+  )
+}
+
 function TerminalPanel() {
   const { lines, clearOutput, runState } = useRun()
   const endRef = useRef<HTMLDivElement>(null)
@@ -47,6 +103,7 @@ function TerminalPanel() {
 
   return (
     <div className="h-full bg-elio-bg flex flex-col">
+      <AgentBar />
       <div className="flex items-center justify-between px-3 py-1 border-b border-elio-border shrink-0">
         <span className="text-[10px] font-semibold uppercase tracking-widest text-elio-text-dim">
           Output

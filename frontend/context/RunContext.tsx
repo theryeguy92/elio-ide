@@ -21,6 +21,7 @@ type RunContextValue = {
   lines: TerminalLine[]
   terminalRevealCount: number
   startRun: (filePath: string) => void
+  startAgentRun: (cli: string, prompt: string) => void
   stopRun: () => void
   clearOutput: () => void
 }
@@ -57,20 +58,17 @@ export function RunProvider({ children }: { children: React.ReactNode }) {
     setRunState('idle')
   }, [])
 
-  const startRun = useCallback((filePath: string) => {
-    if (runState !== 'idle') return
-
+  const connect = useCallback((url: string, banner: string) => {
     setRunState('starting')
     setLines([])
     setTerminalRevealCount((n) => n + 1)
 
-    const url = `${WS_BASE}/run/execute/ws?file_path=${encodeURIComponent(filePath)}`
     const ws = new WebSocket(url)
     wsRef.current = ws
 
     ws.onopen = () => {
       setRunState('running')
-      setLines([{ text: `▶ ${filePath}\n`, stream: 'system' }])
+      setLines([{ text: banner, stream: 'system' }])
     }
 
     ws.onmessage = (e: MessageEvent) => {
@@ -105,7 +103,23 @@ export function RunProvider({ children }: { children: React.ReactNode }) {
       })
       wsRef.current = null
     }
-  }, [runState, append])
+  }, [append])
+
+  const startRun = useCallback((filePath: string) => {
+    if (runState !== 'idle') return
+    connect(
+      `${WS_BASE}/run/execute/ws?file_path=${encodeURIComponent(filePath)}`,
+      `▶ ${filePath}\n`,
+    )
+  }, [runState, connect])
+
+  const startAgentRun = useCallback((cli: string, prompt: string) => {
+    if (runState !== 'idle') return
+    connect(
+      `${WS_BASE}/agents/run/ws?cli=${encodeURIComponent(cli)}&prompt=${encodeURIComponent(prompt)}`,
+      `▶ ${cli} -p "${prompt}"\n`,
+    )
+  }, [runState, connect])
 
   const clearOutput = useCallback(() => setLines([]), [])
 
@@ -116,6 +130,7 @@ export function RunProvider({ children }: { children: React.ReactNode }) {
         lines,
         terminalRevealCount,
         startRun,
+        startAgentRun,
         stopRun,
         clearOutput,
       }}

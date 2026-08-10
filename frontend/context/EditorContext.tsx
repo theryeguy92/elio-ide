@@ -33,6 +33,12 @@ type EditorContextValue = {
   closeTab: (path: string) => void
   markDirty: (path: string, dirty: boolean) => void
   saveActive: () => Promise<void>
+  saveAll: () => Promise<void>
+  runEditorCommand: (cmd: 'undo' | 'redo' | 'find') => void
+  quickOpenOpen: boolean
+  setQuickOpenOpen: (open: boolean) => void
+  newFileTarget: 'project' | 'vault' | null
+  setNewFileTarget: (target: 'project' | 'vault' | null) => void
   sidebarVisible: boolean
   toggleSidebar: () => void
   traceVisible: boolean
@@ -46,6 +52,8 @@ type EditorContextValue = {
   // Monaco bridge — MonacoEditor registers these on mount
   registerGetContent: (fn: (() => string) | null) => void
   registerSwitchModel: (fn: ((path: string, content: string, lang: string) => void) | null) => void
+  registerSaveAll: (fn: (() => Promise<void>) | null) => void
+  registerRunCommand: (fn: ((cmd: 'undo' | 'redo' | 'find') => void) | null) => void
 }
 
 // ---------------------------------------------------------------------------
@@ -87,10 +95,30 @@ export function EditorProvider({ children }: { children: React.ReactNode }) {
   const [traceVisible, setTraceVisible] = useState(true)
   const [computePanelOpen, setComputePanelOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [quickOpenOpen, setQuickOpenOpen] = useState(false)
+  const [newFileTarget, setNewFileTarget] = useState<'project' | 'vault' | null>(null)
   const [terminalToggleSeq, setTerminalToggleSeq] = useState(0)
 
   const getContentRef = useRef<(() => string) | null>(null)
   const switchModelRef = useRef<((path: string, content: string, lang: string) => void) | null>(null)
+  const saveAllRef = useRef<(() => Promise<void>) | null>(null)
+  const runCommandRef = useRef<((cmd: 'undo' | 'redo' | 'find') => void) | null>(null)
+
+  const registerSaveAll = useCallback((fn: (() => Promise<void>) | null) => {
+    saveAllRef.current = fn
+  }, [])
+
+  const registerRunCommand = useCallback((fn: ((cmd: 'undo' | 'redo' | 'find') => void) | null) => {
+    runCommandRef.current = fn
+  }, [])
+
+  const saveAll = useCallback(async () => {
+    await saveAllRef.current?.()
+  }, [])
+
+  const runEditorCommand = useCallback((cmd: 'undo' | 'redo' | 'find') => {
+    runCommandRef.current?.(cmd)
+  }, [])
 
   const registerGetContent = useCallback((fn: (() => string) | null) => {
     getContentRef.current = fn
@@ -187,6 +215,14 @@ export function EditorProvider({ children }: { children: React.ReactNode }) {
         toggleTerminal,
         registerGetContent,
         registerSwitchModel,
+        registerSaveAll,
+        registerRunCommand,
+        saveAll,
+        runEditorCommand,
+        quickOpenOpen,
+        setQuickOpenOpen,
+        newFileTarget,
+        setNewFileTarget,
       }}
     >
       {children}

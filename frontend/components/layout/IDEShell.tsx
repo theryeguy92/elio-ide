@@ -3,7 +3,7 @@
 import { useEffect } from 'react'
 import dynamic from 'next/dynamic'
 import { CodeJumpProvider } from '@/context/CodeJumpContext'
-import { RunProvider } from '@/context/RunContext'
+import { RunProvider, useRun } from '@/context/RunContext'
 import { EditorProvider, useEditor } from '@/context/EditorContext'
 import BottomTabBar from './BottomTabBar'
 import Sidebar from './Sidebar'
@@ -11,6 +11,8 @@ import TopToolbar from './TopToolbar'
 import TraceTimeline from '@/components/trace/TraceTimeline'
 import ComputePanel from '@/components/compute/ComputePanel'
 import SettingsModal from '@/components/settings/SettingsModal'
+import QuickOpen from '@/components/layout/QuickOpen'
+import NewFileDialog from '@/components/layout/NewFileDialog'
 import { settingsApi } from '@/lib/settingsApi'
 
 const MonacoEditor = dynamic(
@@ -22,7 +24,16 @@ const MonacoEditor = dynamic(
 )
 
 function IDELayout() {
-  const { sidebarVisible, traceVisible, setSettingsOpen } = useEditor()
+  const {
+    sidebarVisible,
+    traceVisible,
+    setSettingsOpen,
+    toggleSidebar,
+    toggleTerminal,
+    setQuickOpenOpen,
+    activeTab,
+  } = useEditor()
+  const { runState, startRun, stopRun } = useRun()
 
   // First run — no config.json yet → open setup
   useEffect(() => {
@@ -30,6 +41,26 @@ function IDELayout() {
       if (s.needs_setup) setSettingsOpen(true)
     }).catch(() => {})
   }, [setSettingsOpen])
+
+  // Global shortcuts — keep menu labels honest
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const mod = e.ctrlKey || e.metaKey
+      if (mod && e.key === 'b') {
+        e.preventDefault(); toggleSidebar()
+      } else if (mod && e.key === '`') {
+        e.preventDefault(); toggleTerminal()
+      } else if (mod && e.key === 'p') {
+        e.preventDefault(); setQuickOpenOpen(true)
+      } else if (e.key === 'F5') {
+        e.preventDefault()
+        if (runState !== 'idle') stopRun()
+        else if (activeTab && !activeTab.startsWith('vault:')) startRun(activeTab)
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [toggleSidebar, toggleTerminal, setQuickOpenOpen, runState, startRun, stopRun, activeTab])
 
   return (
     <div className="flex flex-col h-screen bg-elio-bg text-elio-text overflow-hidden">
@@ -46,6 +77,8 @@ function IDELayout() {
       </div>
       <ComputePanel />
       <SettingsModal />
+      <QuickOpen />
+      <NewFileDialog />
     </div>
   )
 }

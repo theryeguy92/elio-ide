@@ -10,6 +10,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 
+from routers.agents import router as agents_router
 from routers.assistant import router as assistant_router
 from routers.compute import router as compute_router
 from routers.fs import router as fs_router
@@ -55,6 +56,7 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+app.include_router(agents_router)
 app.include_router(assistant_router)
 app.include_router(compute_router)
 app.include_router(fs_router)

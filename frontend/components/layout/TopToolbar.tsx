@@ -75,6 +75,11 @@ export default function TopToolbar() {
     tabs,
     activeTab,
     saveActive,
+    saveAll,
+    closeTab,
+    runEditorCommand,
+    setQuickOpenOpen,
+    setNewFileTarget,
     toggleSidebar,
     toggleTrace,
     toggleTerminal,
@@ -119,7 +124,19 @@ export default function TopToolbar() {
   const localBranches = branches.filter((b) => !b.remote)
 
   const fileMenu: MenuItem[] = [
+    { label: 'New File…', action: () => setNewFileTarget('project') },
+    { label: 'New Vault Note…', action: () => setNewFileTarget('vault') },
+    { label: 'Quick Open', shortcut: 'Ctrl+P', action: () => setQuickOpenOpen(true), divider: true },
     { label: 'Save', shortcut: 'Ctrl+S', action: saveActive },
+    { label: 'Save All', action: saveAll },
+    { label: 'Close Tab', action: () => activeTab && closeTab(activeTab), divider: true },
+    { label: 'Change Project Directory…', action: () => setSettingsOpen(true) },
+    { label: 'Change Obsidian Vault…', action: () => setSettingsOpen(true) },
+  ]
+  const editMenu: MenuItem[] = [
+    { label: 'Undo', shortcut: 'Ctrl+Z', action: () => runEditorCommand('undo') },
+    { label: 'Redo', shortcut: 'Ctrl+Y', action: () => runEditorCommand('redo') },
+    { label: 'Find in File', shortcut: 'Ctrl+F', action: () => runEditorCommand('find') },
   ]
   const viewMenu: MenuItem[] = [
     { label: 'Toggle Sidebar', shortcut: 'Ctrl+B', action: toggleSidebar },
@@ -152,6 +169,7 @@ export default function TopToolbar() {
       {/* Menu bar */}
       <nav className="flex items-center gap-0.5 shrink-0">
         <MenuDropdown label="File" items={fileMenu} />
+        <MenuDropdown label="Edit" items={editMenu} />
         <MenuDropdown label="View" items={viewMenu} />
         <MenuDropdown label="Run" items={runMenu} />
       </nav>
