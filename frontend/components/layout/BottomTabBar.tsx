@@ -1,19 +1,21 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { ChevronDown, Cpu, Terminal, Trash2, Users } from 'lucide-react'
+import { ChevronDown, Cpu, Sparkles, Terminal, Trash2, Users } from 'lucide-react'
 import AnsiToHtml from 'ansi-to-html'
 import GPULauncher from '@/components/gpu/GPULauncher'
 import StakeholderTab from '@/components/stakeholder/StakeholderTab'
+import AssistantPanel from '@/components/assistant/AssistantPanel'
 import { useRun, type Stream } from '@/context/RunContext'
 import { useEditor } from '@/context/EditorContext'
 
-type TabId = 'terminal' | 'gpu' | 'stakeholder'
+type TabId = 'terminal' | 'gpu' | 'stakeholder' | 'assistant'
 
 const tabs = [
   { id: 'terminal'    as TabId, label: 'Terminal',    icon: Terminal },
   { id: 'gpu'         as TabId, label: 'GPU',         icon: Cpu },
   { id: 'stakeholder' as TabId, label: 'Stakeholder', icon: Users },
+  { id: 'assistant'   as TabId, label: 'Assistant',   icon: Sparkles },
 ]
 
 // ---------------------------------------------------------------------------
@@ -25,7 +27,7 @@ const converter = new AnsiToHtml({ escapeXML: true })
 const STREAM_COLOR: Record<Stream, string> = {
   stdout:   'var(--elio-text-muted)',
   stderr:   'var(--elio-error)',
-  system:   '#60a5fa',
+  system:   'var(--elio-primary)',
   exit_ok:  'var(--elio-success)',
   exit_err: 'var(--elio-error)',
 }
@@ -111,7 +113,7 @@ export default function BottomTabBar() {
   return (
     <div
       className={`bg-elio-bg border-t border-elio-border flex flex-col shrink-0 transition-all duration-200 ${
-        collapsed ? 'h-8' : activeTab === 'stakeholder' ? 'h-96' : 'h-52'
+        collapsed ? 'h-8' : activeTab === 'stakeholder' || activeTab === 'assistant' ? 'h-96' : 'h-52'
       }`}
     >
       {/* Tab bar */}
@@ -150,6 +152,7 @@ export default function BottomTabBar() {
           {activeTab === 'terminal'    && <TerminalPanel />}
           {activeTab === 'gpu'         && <GPULauncher />}
           {activeTab === 'stakeholder' && <StakeholderTab />}
+          {activeTab === 'assistant'   && <AssistantPanel />}
         </div>
       )}
     </div>

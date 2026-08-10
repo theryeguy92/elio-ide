@@ -13,15 +13,15 @@ import {
 import { gitApi, type CommitEntry, type FileStatus } from '@/lib/gitApi'
 
 const STATUS_COLOR: Record<string, string> = {
-  M: 'text-yellow-400',
-  A: 'text-green-400',
-  D: 'text-red-400',
-  R: 'text-blue-400',
-  '?': 'text-gray-500',
+  M: 'text-elio-warning',
+  A: 'text-elio-success',
+  D: 'text-elio-error',
+  R: 'text-elio-text-muted',
+  '?': 'text-elio-text-dim',
 }
 
 function FileBadge({ status }: { status: string }) {
-  const color = STATUS_COLOR[status] ?? 'text-gray-400'
+  const color = STATUS_COLOR[status] ?? 'text-elio-text-muted'
   return (
     <span className={`text-[10px] font-bold w-3 shrink-0 ${color}`}>
       {status === '?' ? 'U' : status}
@@ -118,12 +118,12 @@ export default function GitPanel() {
   const stagedCount = files.filter((f) => f.staged).length
 
   return (
-    <div className="border-t border-[#3c3c3c]">
+    <div className="border-t border-elio-border">
       {/* Section header */}
       <div className="flex items-center">
         <button
           onClick={() => setOpen(!open)}
-          className="flex-1 flex items-center gap-1 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-gray-400 hover:text-gray-200 hover:bg-[#2a2d2e] transition-colors"
+          className="flex-1 flex items-center gap-1 px-3 py-1.5 text-xs font-semibold uppercase tracking-wider text-elio-text-muted hover:text-elio-text hover:bg-elio-surface-2 transition-colors"
         >
           {open ? (
             <ChevronDown className="h-3 w-3 shrink-0" />
@@ -139,22 +139,22 @@ export default function GitPanel() {
         </button>
         <button
           onClick={refresh}
-          className="p-1.5 rounded hover:bg-[#3c3c3c] transition-colors mr-1"
+          className="p-1.5 rounded hover:bg-elio-surface-3 transition-colors mr-1"
           aria-label="Refresh"
         >
-          <RefreshCw className={`h-3 w-3 text-gray-500 ${loading ? 'animate-spin' : ''}`} />
+          <RefreshCw className={`h-3 w-3 text-elio-text-dim ${loading ? 'animate-spin' : ''}`} />
         </button>
       </div>
 
       {open && (
         <div className="pb-2">
           {error && (
-            <p className="text-[10px] text-red-400 px-3 py-1 truncate" title={error}>
+            <p className="text-[10px] text-elio-error px-3 py-1 truncate" title={error}>
               {error}
             </p>
           )}
           {successMsg && (
-            <p className="text-[10px] text-green-400 px-3 py-1">{successMsg}</p>
+            <p className="text-[10px] text-elio-success px-3 py-1">{successMsg}</p>
           )}
 
           {/* Changed files list */}
@@ -163,7 +163,7 @@ export default function GitPanel() {
               {files.map((file) => (
                 <label
                   key={file.path}
-                  className="flex items-center gap-1.5 px-3 py-0.5 hover:bg-[#2a2d2e] cursor-pointer"
+                  className="flex items-center gap-1.5 px-3 py-0.5 hover:bg-elio-surface-2 cursor-pointer"
                 >
                   <input
                     type="checkbox"
@@ -173,7 +173,7 @@ export default function GitPanel() {
                   />
                   <FileBadge status={file.status} />
                   <span
-                    className="text-[11px] text-gray-300 truncate flex-1"
+                    className="text-[11px] text-elio-text truncate flex-1"
                     title={file.path}
                   >
                     {file.path.includes('/') ? file.path.split('/').pop() : file.path}
@@ -183,7 +183,7 @@ export default function GitPanel() {
             </div>
           ) : (
             !loading && (
-              <p className="text-[10px] text-gray-600 px-3 py-1">No changes</p>
+              <p className="text-[10px] text-elio-text-dim px-3 py-1">No changes</p>
             )
           )}
 
@@ -195,18 +195,18 @@ export default function GitPanel() {
                 onChange={(e) => setCommitMsg(e.target.value)}
                 placeholder="Commit message…"
                 rows={2}
-                className="w-full bg-[#1e1e1e] border border-[#3c3c3c] rounded px-2 py-1 pr-6 text-[11px] text-gray-300 placeholder-gray-600 resize-none focus:outline-none focus:border-blue-500 transition-colors"
+                className="w-full bg-elio-bg border border-elio-border rounded px-2 py-1 pr-6 text-[11px] text-elio-text placeholder:text-elio-text-dim resize-none focus:outline-none focus:border-elio-primary transition-colors"
               />
               <button
                 onClick={handleSuggest}
                 disabled={suggesting}
                 title="Suggest with AI"
-                className="absolute bottom-1.5 right-1 p-0.5 rounded hover:bg-[#3c3c3c] transition-colors disabled:opacity-40"
+                className="absolute bottom-1.5 right-1 p-0.5 rounded hover:bg-elio-surface-3 transition-colors disabled:opacity-40"
               >
                 {suggesting ? (
-                  <Loader className="h-3 w-3 text-purple-400 animate-spin" />
+                  <Loader className="h-3 w-3 text-elio-primary animate-spin" />
                 ) : (
-                  <Sparkles className="h-3 w-3 text-purple-400" />
+                  <Sparkles className="h-3 w-3 text-elio-primary" />
                 )}
               </button>
             </div>
@@ -228,7 +228,7 @@ export default function GitPanel() {
                 onClick={handlePush}
                 disabled={pushing}
                 title="Push to remote"
-                className="flex items-center justify-center gap-1 px-2.5 py-1 rounded bg-[#3c3c3c] hover:bg-[#4c4c4c] disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-[11px] text-gray-300"
+                className="flex items-center justify-center gap-1 px-2.5 py-1 rounded bg-elio-surface-3 hover:bg-elio-border-bright disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-[11px] text-elio-text"
               >
                 {pushing ? (
                   <Loader className="h-3 w-3 animate-spin" />
@@ -241,16 +241,16 @@ export default function GitPanel() {
 
           {/* Recent commits */}
           {commits.length > 0 && (
-            <div className="border-t border-[#2a2d2e] pt-1.5 mt-1">
-              <p className="text-[9px] font-semibold uppercase tracking-wider text-gray-500 px-3 pb-1">
+            <div className="border-t border-elio-border pt-1.5 mt-1">
+              <p className="text-[9px] font-semibold uppercase tracking-wider text-elio-text-dim px-3 pb-1">
                 Recent commits
               </p>
               {commits.map((c) => (
                 <div key={c.hash} className="px-3 py-0.5">
-                  <p className="text-[10px] text-gray-300 truncate" title={c.message}>
+                  <p className="text-[10px] text-elio-text truncate" title={c.message}>
                     {c.message}
                   </p>
-                  <p className="text-[9px] text-gray-600">
+                  <p className="text-[9px] text-elio-text-dim">
                     {c.short_hash} · {c.author}
                   </p>
                 </div>

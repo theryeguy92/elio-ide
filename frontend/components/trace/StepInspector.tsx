@@ -20,7 +20,7 @@ function JsonView({ value }: { value: unknown }) {
     )
   }
   return (
-    <pre className="font-mono text-[11px] text-blue-300 whitespace-pre-wrap break-all leading-relaxed overflow-x-auto">
+    <pre className="font-mono text-[11px] text-elio-text whitespace-pre-wrap break-all leading-relaxed overflow-x-auto">
       {JSON.stringify(value, null, 2)}
     </pre>
   )

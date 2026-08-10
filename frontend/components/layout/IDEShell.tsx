@@ -14,7 +14,7 @@ const MonacoEditor = dynamic(
   () => import('@/components/editor/MonacoEditor'),
   {
     ssr: false,
-    loading: () => <div className="flex-1 bg-[#1e1e1e]" />,
+    loading: () => <div className="flex-1 bg-elio-bg" />,
   },
 )
 
@@ -22,7 +22,7 @@ function IDELayout() {
   const { sidebarVisible, traceVisible } = useEditor()
 
   return (
-    <div className="flex flex-col h-screen bg-[#1e1e1e] text-gray-100 overflow-hidden">
+    <div className="flex flex-col h-screen bg-elio-bg text-elio-text overflow-hidden">
       <TopToolbar />
       <div className="flex flex-1 overflow-hidden">
         {sidebarVisible && <Sidebar />}

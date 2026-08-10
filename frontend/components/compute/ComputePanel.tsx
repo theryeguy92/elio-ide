@@ -117,7 +117,7 @@ export default function ComputePanel() {
                   {status.gpus.map((gpu, i) => (
                     <div key={i} className="p-3 bg-elio-surface-2 border border-elio-border">
                       <div className="flex items-center gap-2 mb-2">
-                        <Cpu className="h-3.5 w-3.5 text-blue-400 shrink-0" />
+                        <Cpu className="h-3.5 w-3.5 text-elio-text-muted shrink-0" />
                         <span className="text-[11px] text-elio-text truncate">{gpu.name}</span>
                       </div>
                       <div className="space-y-1">

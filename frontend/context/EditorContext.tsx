@@ -8,6 +8,11 @@ import {
   useState,
 } from 'react'
 import { fsApi } from '@/lib/fsApi'
+import { vaultApi } from '@/lib/vaultApi'
+
+// Vault note tabs are namespaced with this prefix so they never collide
+// with project file paths.
+export const VAULT_PREFIX = 'vault:'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -24,6 +29,7 @@ type EditorContextValue = {
   tabs: Tab[]
   activeTab: string | null
   openFile: (path: string) => Promise<void>
+  openNote: (notePath: string) => Promise<void>
   closeTab: (path: string) => void
   markDirty: (path: string, dirty: boolean) => void
   saveActive: () => Promise<void>
@@ -97,7 +103,7 @@ export function EditorProvider({ children }: { children: React.ReactNode }) {
     )
   }, [])
 
-  const openFile = useCallback(async (path: string) => {
+  const openWith = useCallback(async (path: string, read: () => Promise<string>) => {
     // If already open, just switch to it
     const existing = tabs.find((t) => t.path === path)
     if (existing) {
@@ -106,13 +112,24 @@ export function EditorProvider({ children }: { children: React.ReactNode }) {
       return
     }
 
-    const { content } = await fsApi.readFile(path)
+    const content = await read()
     const language = langFromPath(path)
 
     setTabs((prev) => [...prev, { path, language, isDirty: false, initialContent: content }])
     setActiveTab(path)
     switchModelRef.current?.(path, content, language)
   }, [tabs])
+
+  const openFile = useCallback(async (path: string) => {
+    await openWith(path, async () => (await fsApi.readFile(path)).content)
+  }, [openWith])
+
+  const openNote = useCallback(async (notePath: string) => {
+    await openWith(
+      `${VAULT_PREFIX}${notePath}`,
+      async () => (await vaultApi.readNote(notePath)).content,
+    )
+  }, [openWith])
 
   const closeTab = useCallback((path: string) => {
     setTabs((prev) => {
@@ -133,7 +150,11 @@ export function EditorProvider({ children }: { children: React.ReactNode }) {
     if (!activeTab) return
     const content = getContentRef.current?.()
     if (content === undefined) return
-    await fsApi.writeFile(activeTab, content)
+    if (activeTab.startsWith(VAULT_PREFIX)) {
+      await vaultApi.writeNote(activeTab.slice(VAULT_PREFIX.length), content)
+    } else {
+      await fsApi.writeFile(activeTab, content)
+    }
     markDirty(activeTab, false)
   }, [activeTab, markDirty])
 
@@ -147,6 +168,7 @@ export function EditorProvider({ children }: { children: React.ReactNode }) {
         tabs,
         activeTab,
         openFile,
+        openNote,
         closeTab,
         markDirty,
         saveActive,

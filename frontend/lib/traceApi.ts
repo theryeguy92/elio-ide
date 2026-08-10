@@ -1,4 +1,4 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:8000'
+import { API_BASE, apiFetch } from '@/lib/apiFetch'
 // http → ws, https → wss
 const WS_BASE = API_BASE.replace(/^http/, 'ws')
 
@@ -43,19 +43,6 @@ export type RunWithSteps = Run & { steps: Step[] }
 // ---------------------------------------------------------------------------
 // Core fetch wrapper
 // ---------------------------------------------------------------------------
-
-async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(`${API_BASE}${path}`, {
-    headers: { 'Content-Type': 'application/json' },
-    ...init,
-  })
-  if (!res.ok) {
-    const text = await res.text().catch(() => res.statusText)
-    throw new Error(text || `HTTP ${res.status}`)
-  }
-  if (res.status === 204) return undefined as T
-  return res.json() as Promise<T>
-}
 
 // ---------------------------------------------------------------------------
 // REST endpoints

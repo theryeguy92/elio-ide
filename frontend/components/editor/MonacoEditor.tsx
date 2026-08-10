@@ -6,15 +6,14 @@ import type * as Monaco from 'monaco-editor'
 import { X, FileCode } from 'lucide-react'
 import { useCodeJump } from '@/context/CodeJumpContext'
 import { useEditor } from '@/context/EditorContext'
+import { vaultApi } from '@/lib/vaultApi'
+import { fileColor } from '@/lib/fileColor'
 
-function TabIcon({ language }: { language: string }) {
-  const color =
-    language === 'python'     ? 'text-[#F5A623]' :
-    language === 'typescript' ? 'text-blue-400' :
-    language === 'javascript' ? 'text-yellow-300' :
-    language === 'json'       ? 'text-green-400' :
-    'text-elio-text-dim'
-  return <FileCode className={`h-3.5 w-3.5 shrink-0 ${color}`} />
+// Comment conventions that reference vault notes: [[note name]] or note: note-name
+const NOTE_PATTERNS = [/\[\[([^\]]+)\]\]/g, /\bnote:\s*([\w.-]+)/gi]
+
+function TabIcon({ path }: { path: string }) {
+  return <FileCode className={`h-3.5 w-3.5 shrink-0 ${fileColor(path)}`} />
 }
 
 export default function MonacoEditor() {
@@ -30,9 +29,14 @@ export default function MonacoEditor() {
     closeTab,
     markDirty,
     saveActive,
+    openNote,
     registerGetContent,
     registerSwitchModel,
   } = useEditor()
+
+  // Ref so the one-time-registered Monaco command always calls the latest openNote
+  const openNoteRef = useRef(openNote)
+  openNoteRef.current = openNote
 
   useEffect(() => {
     registerGetContent(() => editorRef.current?.getValue() ?? '')
@@ -89,6 +93,44 @@ export default function MonacoEditor() {
     editorRef.current = editor
     monacoRef.current = monaco
     editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.KeyS, () => saveActive())
+
+    // Hover a [[note]] / note: reference → preview the vault note, click to open
+    monaco.editor.registerCommand('elio.openVaultNote', (_accessor: unknown, path: string) => {
+      openNoteRef.current(path)
+    })
+    monaco.languages.registerHoverProvider('*', {
+      provideHover: async (model: Monaco.editor.ITextModel, position: Monaco.Position) => {
+        const line = model.getLineContent(position.lineNumber)
+        for (const re of NOTE_PATTERNS) {
+          re.lastIndex = 0
+          let m: RegExpExecArray | null
+          while ((m = re.exec(line)) !== null) {
+            const start = m.index + 1
+            const end = start + m[0].length
+            if (position.column < start || position.column > end) continue
+            const range = new monaco.Range(position.lineNumber, start, position.lineNumber, end)
+            try {
+              const note = await vaultApi.resolve(m[1])
+              const preview = note.content.slice(0, 800)
+              const arg = encodeURIComponent(JSON.stringify([note.path]))
+              const md = new monaco.MarkdownString(
+                `**${note.path}**\n\n${preview}${note.content.length > 800 ? '\n\n…' : ''}` +
+                `\n\n---\n[Open in Vault](command:elio.openVaultNote?${arg})`,
+              )
+              md.isTrusted = true
+              return { contents: [md], range }
+            } catch {
+              return {
+                contents: [new monaco.MarkdownString(`Vault note not found: \`${m[1]}\``)],
+                range,
+              }
+            }
+          }
+        }
+        return null
+      },
+    })
+
     editor.focus()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -115,7 +157,7 @@ export default function MonacoEditor() {
                 }`}
                 onClick={() => openFile(tab.path)}
               >
-                <TabIcon language={tab.language} />
+                <TabIcon path={tab.path} />
                 <span className="text-[11px] whitespace-nowrap font-mono">
                   {fileName}
                   {tab.isDirty && <span className="ml-1 text-elio-primary">●</span>}

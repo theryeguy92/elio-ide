@@ -140,7 +140,7 @@ export default function GPULauncher() {
 
   if (loadingProviders) {
     return (
-      <div className="p-3 flex items-center gap-2 text-gray-400 text-sm">
+      <div className="p-3 flex items-center gap-2 text-elio-text-muted text-sm">
         <Loader className="h-4 w-4 animate-spin" />
         Loading GPU options…
       </div>
@@ -149,7 +149,7 @@ export default function GPULauncher() {
 
   if (providersError) {
     return (
-      <div className="p-3 flex items-center gap-2 text-red-400 text-sm">
+      <div className="p-3 flex items-center gap-2 text-elio-error text-sm">
         <AlertCircle className="h-4 w-4 shrink-0" />
         <span className="text-xs">{providersError}</span>
       </div>
@@ -161,8 +161,8 @@ export default function GPULauncher() {
   return (
     <div className="p-3 space-y-3">
       <div className="flex items-center gap-2">
-        <Cpu className="h-4 w-4 text-purple-400" />
-        <span className="text-sm font-medium text-gray-200">GPU Launcher</span>
+        <Cpu className="h-4 w-4 text-elio-primary" />
+        <span className="text-sm font-medium text-elio-text">GPU Launcher</span>
       </div>
 
       {isActive ? (
@@ -204,23 +204,23 @@ function ActiveSession({
 }) {
   return (
     <div className="space-y-2">
-      <div className="px-3 py-2.5 rounded bg-[#2a2d2e] border border-[#3c3c3c] space-y-2">
+      <div className="px-3 py-2.5 rounded bg-elio-surface-2 border border-elio-border space-y-2">
         <div className="flex items-center justify-between">
-          <span className="text-xs font-medium text-gray-200 truncate pr-2">
+          <span className="text-xs font-medium text-elio-text truncate pr-2">
             {session.gpu_type}
           </span>
           <StatusBadge status={session.status} />
         </div>
 
         <div className="flex items-center justify-between text-[11px]">
-          <span className="text-gray-500">${session.cost_per_hr.toFixed(2)}/hr</span>
-          <span className="font-mono tabular-nums text-green-400">
+          <span className="text-elio-text-dim">${session.cost_per_hr.toFixed(2)}/hr</span>
+          <span className="font-mono tabular-nums text-elio-success">
             ${displayCost.toFixed(4)} accrued
           </span>
         </div>
 
         {session.uptime_seconds !== null && (
-          <div className="text-[10px] text-gray-500">
+          <div className="text-[10px] text-elio-text-dim">
             Uptime: {formatUptime(session.uptime_seconds)}
           </div>
         )}
@@ -269,11 +269,11 @@ function ProviderSelector({
             className={`p-2 rounded border text-left transition-colors ${
               selectedId === gpu.id
                 ? 'border-blue-500 bg-blue-500/10 text-white'
-                : 'border-[#3c3c3c] text-gray-400 hover:border-gray-500 hover:text-gray-200'
+                : 'border-elio-border text-elio-text-muted hover:border-elio-border-bright hover:text-elio-text'
             }`}
           >
             <p className="text-xs font-medium truncate">{gpu.name}</p>
-            <p className="text-[10px] text-gray-500 mt-0.5">
+            <p className="text-[10px] text-elio-text-dim mt-0.5">
               ${gpu.price_per_hr.toFixed(2)}/hr
             </p>
           </button>
@@ -281,15 +281,15 @@ function ProviderSelector({
       </div>
 
       {selected && (
-        <div className="px-3 py-2 rounded bg-[#2a2d2e] border border-[#3c3c3c]">
-          <p className="text-xs text-gray-300">{selected.memory_gb} GB VRAM</p>
+        <div className="px-3 py-2 rounded bg-elio-surface-2 border border-elio-border">
+          <p className="text-xs text-elio-text">{selected.memory_gb} GB VRAM</p>
         </div>
       )}
 
       {errorMsg && (
         <div className="flex items-start gap-2 px-3 py-2 rounded bg-red-900/20 border border-red-700/40">
-          <AlertCircle className="h-3.5 w-3.5 text-red-400 shrink-0 mt-0.5" />
-          <p className="text-[10px] text-red-300 break-all">{errorMsg}</p>
+          <AlertCircle className="h-3.5 w-3.5 text-elio-error shrink-0 mt-0.5" />
+          <p className="text-[10px] text-elio-error break-all">{errorMsg}</p>
         </div>
       )}
 
@@ -311,12 +311,12 @@ function ProviderSelector({
 
 function StatusBadge({ status }: { status: string }) {
   const variants: Record<string, string> = {
-    running: 'bg-green-400/15 text-green-400 border-green-500/30',
-    pending: 'bg-yellow-400/15 text-yellow-400 border-yellow-500/30',
-    exited: 'bg-red-400/15 text-red-400 border-red-500/30',
-    terminated: 'bg-red-400/15 text-red-400 border-red-500/30',
+    running: 'bg-elio-success/15 text-elio-success border-elio-success/30',
+    pending: 'bg-elio-warning/15 text-elio-warning border-elio-warning/30',
+    exited: 'bg-elio-error/15 text-elio-error border-elio-error/30',
+    terminated: 'bg-elio-error/15 text-elio-error border-elio-error/30',
   }
-  const cls = variants[status] ?? 'bg-gray-400/15 text-gray-400 border-gray-500/30'
+  const cls = variants[status] ?? 'bg-elio-text-muted/15 text-elio-text-muted border-elio-border-bright'
   return (
     <span className={`shrink-0 text-[10px] px-1.5 py-0.5 rounded border font-medium capitalize ${cls}`}>
       {status}

@@ -79,7 +79,7 @@ function toRFEdges(edges: StakeholderEdge[], animated: boolean): Edge[] {
     label: e.count > 1 ? `${e.label} (×${e.count})` : e.label,
     animated,
     type: 'smoothstep',
-    style: { stroke: animated ? '#F5A623' : '#333333', strokeWidth: animated ? 2 : 1.5 },
+    style: { stroke: animated ? '#F5A623' : '#3A3A3A', strokeWidth: animated ? 2 : 1.5 },
     labelStyle: { fill: '#888888', fontSize: 9, fontFamily: 'inherit' },
     labelBgStyle: { fill: '#141414', fillOpacity: 0.9, rx: 2 },
     labelBgPadding: [4, 3] as [number, number],
@@ -167,7 +167,7 @@ function StakeholderCanvas() {
     if (!containerRef.current) return
     try {
       const dataUrl = await toPng(containerRef.current, {
-        backgroundColor: '#1e1e1e',
+        backgroundColor: '#0A0A0A',
         pixelRatio: 2,
         filter: (el) =>
           !el.classList?.contains('react-flow__controls') &&
@@ -285,7 +285,7 @@ function StakeholderCanvas() {
             />
             <Controls
               showInteractive={false}
-              className="!border-[#3c3c3c] !bg-[#252526] !shadow-none"
+              className="!border-elio-border !bg-elio-surface-2 !shadow-none"
             />
           </ReactFlow>
         </div>

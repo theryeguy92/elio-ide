@@ -10,7 +10,7 @@ from pydantic import BaseModel
 
 router = APIRouter(prefix="/fs", tags=["fs"])
 
-REPO_PATH = Path(os.getenv("GIT_REPO_PATH", "/home/levey/elio-ide")).resolve()
+REPO_PATH = Path(os.getenv("GIT_REPO_PATH", ".")).resolve()
 
 _SKIP = frozenset({
     ".git", "__pycache__", ".next", "node_modules",
