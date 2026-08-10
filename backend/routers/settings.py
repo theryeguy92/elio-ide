@@ -39,6 +39,12 @@ class TestResult(BaseModel):
     detail: str
 
 
+class BrowseResponse(BaseModel):
+    path: str
+    parent: str | None
+    dirs: list[str]
+
+
 @router.get("", response_model=SettingsResponse)
 async def get_settings() -> SettingsResponse:
     return SettingsResponse(**settings.public(), needs_setup=settings.needs_setup)
@@ -62,6 +68,24 @@ async def update_settings(body: SettingsUpdate) -> SettingsResponse:
 
     settings.update(data)
     return SettingsResponse(**settings.public(), needs_setup=settings.needs_setup)
+
+
+@router.get("/browse", response_model=BrowseResponse)
+async def browse_directories(path: str = "~") -> BrowseResponse:
+    """List subdirectories for the settings folder picker (dirs only)."""
+    full = Path(path).expanduser().resolve()
+    if not full.is_dir():
+        raise HTTPException(status_code=404, detail=f"Not a directory: {full}")
+    try:
+        dirs = sorted(
+            e.name
+            for e in full.iterdir()
+            if e.is_dir() and not e.name.startswith(".")
+        )
+    except PermissionError as exc:
+        raise HTTPException(status_code=403, detail=f"Permission denied: {full}") from exc
+    parent = str(full.parent) if full.parent != full else None
+    return BrowseResponse(path=str(full), parent=parent, dirs=dirs)
 
 
 @router.post("/test-llm", response_model=TestResult)

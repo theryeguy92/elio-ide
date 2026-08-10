@@ -19,6 +19,12 @@ export type LlmTestResult = {
   detail: string
 }
 
+export type BrowseResult = {
+  path: string
+  parent: string | null
+  dirs: string[]
+}
+
 export const settingsApi = {
   get: () => apiFetch<Settings>('/settings'),
 
@@ -30,4 +36,7 @@ export const settingsApi = {
 
   testLlm: () =>
     apiFetch<LlmTestResult>('/settings/test-llm', { method: 'POST' }),
+
+  browse: (path = '~') =>
+    apiFetch<BrowseResult>(`/settings/browse?path=${encodeURIComponent(path)}`),
 }

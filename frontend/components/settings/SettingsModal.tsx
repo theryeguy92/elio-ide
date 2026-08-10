@@ -1,9 +1,10 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { CheckCircle, Loader, X, XCircle } from 'lucide-react'
+import { CheckCircle, FolderOpen, Loader, X, XCircle } from 'lucide-react'
 import { settingsApi, type Settings } from '@/lib/settingsApi'
 import { useEditor } from '@/context/EditorContext'
+import FolderPicker from '@/components/settings/FolderPicker'
 
 const PRESETS = [
   { label: 'Kimi K3', provider: 'openai', llm_base_url: 'https://api.moonshot.ai/v1', llm_model: 'kimi-k3' },
@@ -33,6 +34,7 @@ export default function SettingsModal() {
   const [error, setError] = useState<string | null>(null)
   const [testResult, setTestResult] = useState<{ ok: boolean; detail: string } | null>(null)
   const [testing, setTesting] = useState(false)
+  const [picking, setPicking] = useState<'project_path' | 'vault_path' | null>(null)
 
   useEffect(() => {
     if (!settingsOpen) return
@@ -102,20 +104,38 @@ export default function SettingsModal() {
             {/* Paths */}
             <div className="space-y-2.5">
               <Field label="Project directory">
-                <input
-                  value={form.project_path}
-                  onChange={set('project_path')}
-                  placeholder="/path/to/your/project"
-                  className={`${inputCls} font-mono`}
-                />
+                <div className="flex items-center gap-1.5">
+                  <input
+                    value={form.project_path}
+                    onChange={set('project_path')}
+                    placeholder="/path/to/your/project"
+                    className={`${inputCls} font-mono`}
+                  />
+                  <button
+                    onClick={() => setPicking('project_path')}
+                    className="p-1.5 rounded bg-elio-surface-2 border border-elio-border hover:border-elio-border-bright text-elio-text-muted hover:text-elio-text shrink-0 transition-colors duration-150"
+                    aria-label="Browse for project directory"
+                  >
+                    <FolderOpen className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               </Field>
               <Field label="Obsidian vault">
-                <input
-                  value={form.vault_path}
-                  onChange={set('vault_path')}
-                  placeholder="/path/to/your/vault"
-                  className={`${inputCls} font-mono`}
-                />
+                <div className="flex items-center gap-1.5">
+                  <input
+                    value={form.vault_path}
+                    onChange={set('vault_path')}
+                    placeholder="/path/to/your/vault"
+                    className={`${inputCls} font-mono`}
+                  />
+                  <button
+                    onClick={() => setPicking('vault_path')}
+                    className="p-1.5 rounded bg-elio-surface-2 border border-elio-border hover:border-elio-border-bright text-elio-text-muted hover:text-elio-text shrink-0 transition-colors duration-150"
+                    aria-label="Browse for vault directory"
+                  >
+                    <FolderOpen className="h-3.5 w-3.5" />
+                  </button>
+                </div>
               </Field>
             </div>
 
@@ -231,6 +251,17 @@ export default function SettingsModal() {
           </div>
         )}
       </div>
+
+      {picking && form && (
+        <FolderPicker
+          initialPath={form[picking] || '~'}
+          onSelect={(path) => {
+            setForm((f) => (f ? { ...f, [picking]: path } : f))
+            setPicking(null)
+          }}
+          onClose={() => setPicking(null)}
+        />
+      )}
     </div>
   )
 }
