@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { BookOpen, FileText, Loader, Send, Sparkles } from 'lucide-react'
 import {
   assistantApi,
+  type AssistantConfig,
   type AssistantMode,
   type ChatMessage,
   type ProposedFile,
@@ -34,7 +35,12 @@ export default function AssistantPanel() {
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
   const [applied, setApplied] = useState<Set<string>>(new Set())
+  const [config, setConfig] = useState<AssistantConfig | null>(null)
   const endRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    assistantApi.config().then(setConfig).catch(() => setConfig(null))
+  }, [])
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: 'smooth' })
@@ -98,6 +104,14 @@ export default function AssistantPanel() {
         <span className="ml-2 text-[10px] text-elio-text-dim truncate">
           {MODES.find((m) => m.id === mode)?.hint}
         </span>
+        {config && (
+          <span
+            className="ml-auto pl-2 text-[10px] text-elio-text-dim shrink-0"
+            title={config.base_url || undefined}
+          >
+            {config.provider} · {config.model}
+          </span>
+        )}
       </div>
 
       {/* Messages */}

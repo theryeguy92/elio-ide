@@ -4,20 +4,12 @@ import asyncio
 import os
 
 import git
-from anthropic import AsyncAnthropic
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from llm import chat_completion
+
 router = APIRouter(prefix="/git", tags=["git"])
-
-_anthropic: AsyncAnthropic | None = None
-
-
-def _client() -> AsyncAnthropic:
-    global _anthropic
-    if _anthropic is None:
-        _anthropic = AsyncAnthropic()
-    return _anthropic
 
 
 def _repo() -> git.Repo:
@@ -297,10 +289,8 @@ async def suggest_message() -> SuggestMessageResponse:
     if not diff:
         return SuggestMessageResponse(message="chore: update files")
 
-    resp = await _client().messages.create(
-        model="claude-sonnet-4-6",
-        max_tokens=100,
-        messages=[
+    text = await chat_completion(
+        [
             {
                 "role": "user",
                 "content": (
@@ -310,7 +300,7 @@ async def suggest_message() -> SuggestMessageResponse:
                 ),
             }
         ],
+        max_tokens=100,
     )
 
-    text = resp.content[0].text.strip().strip('"').strip("'")
-    return SuggestMessageResponse(message=text)
+    return SuggestMessageResponse(message=text.strip().strip('"').strip("'"))

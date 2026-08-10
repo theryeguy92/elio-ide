@@ -10,24 +10,14 @@ import json
 import re
 from typing import Literal
 
-from anthropic import AsyncAnthropic
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from llm import chat_completion, current_config
 from routers.fs import REPO_PATH, _build_tree as _project_tree
 from routers.vault import VAULT_PATH, _build_tree as _vault_tree
 
 router = APIRouter(prefix="/assistant", tags=["assistant"])
-
-_anthropic: AsyncAnthropic | None = None
-_MODEL = "claude-sonnet-4-6"
-
-
-def _client() -> AsyncAnthropic:
-    global _anthropic
-    if _anthropic is None:
-        _anthropic = AsyncAnthropic()
-    return _anthropic
 
 
 # ---------------------------------------------------------------------------
@@ -145,6 +135,12 @@ _SYSTEM = {
 # ---------------------------------------------------------------------------
 
 
+@router.get("/config")
+async def get_config() -> dict[str, str]:
+    """Which LLM the assistant is talking to."""
+    return current_config()
+
+
 @router.post("/chat", response_model=ChatResponse)
 async def chat(body: ChatRequest) -> ChatResponse:
     context = _project_context() + "\n\n" + _vault_context()
@@ -158,17 +154,16 @@ async def chat(body: ChatRequest) -> ChatResponse:
     })
 
     try:
-        resp = await _client().messages.create(
-            model=_MODEL,
-            max_tokens=4096,
-            system=_SYSTEM[body.mode],
-            messages=messages,
+        text = await chat_completion(
+            messages, system=_SYSTEM[body.mode], max_tokens=4096,
         )
     except Exception as exc:
+        cfg = current_config()
         raise HTTPException(
             status_code=502,
-            detail=f"Claude call failed (is ANTHROPIC_API_KEY set?): {exc}",
+            detail=f"LLM call failed (provider={cfg['provider']}, model={cfg['model']}) "
+                   f"— check LLM_* / ANTHROPIC_API_KEY env vars: {exc}",
         ) from exc
 
-    reply, files = _extract_files(resp.content[0].text)
+    reply, files = _extract_files(text)
     return ChatResponse(reply=reply, files=files)

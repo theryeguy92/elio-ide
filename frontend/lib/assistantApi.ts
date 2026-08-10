@@ -17,7 +17,15 @@ export type ChatResponse = {
 
 export type AssistantMode = 'vault-setup' | 'readme'
 
+export type AssistantConfig = {
+  provider: string
+  model: string
+  base_url: string
+}
+
 export const assistantApi = {
+  config: () => apiFetch<AssistantConfig>('/assistant/config'),
+
   chat: async (
     mode: AssistantMode,
     message: string,
